@@ -2,7 +2,7 @@
   "document": "確定申告書 第一表(令和7年分)",
   "issuer": "本人作成(様式は国税庁)",
   "values": {
-    "year": 2025,
+    "incomeYear": 2025,
     "name": "佐藤 花子",
     "address": "見本県見本市北町4丁目5番6号",
     "birthDate": "1983-07-07",

@@ -113,7 +113,7 @@ export const taxReturn: SampleDocument = {
   html: () => page(body, css),
   scan: { ...CLEAN_SCAN, skewDegrees: -0.3 },
   expected: {
-    year: 2025,
+    incomeYear: 2025,
     name: sato.name,
     address: sato.address,
     birthDate: sato.birthDate,

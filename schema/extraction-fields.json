@@ -1,0 +1,181 @@
+{
+  "version": "0.1.0",
+  "status": "案(利用者と未合意)",
+  "description": "書類ごとの抽出項目の定義。説明は docs/extraction-fields.md を参照。",
+  "types": {
+    "text": "文字列",
+    "date": "日付。西暦の YYYY-MM-DD",
+    "yearMonth": "年月。西暦の YYYY-MM",
+    "year": "年。西暦の4桁",
+    "money": "金額。円単位の整数(万円・千円の欄は円に換算する)",
+    "number": "数値(年数・年齢など)。unit に単位を書く",
+    "boolean": "チェック欄の有無",
+    "list": "表形式の欄。items に1行分の項目を書く"
+  },
+  "documents": [
+    {
+      "id": "withholding-slip",
+      "title": "給与所得の源泉徴収票",
+      "fields": [
+        { "key": "incomeYear", "label": "対象年(年分)", "type": "year", "required": true, "diffPriority": "high", "sourceLabels": ["令和○年分"] },
+        { "key": "name", "label": "氏名", "type": "text", "required": true, "diffPriority": "high", "sourceLabels": ["氏名"], "note": "「支払を受ける者」の枠内" },
+        { "key": "address", "label": "住所", "type": "text", "required": true, "diffPriority": "normal", "sourceLabels": ["住所又は居所"], "note": "「支払を受ける者」の枠内" },
+        { "key": "birthDate", "label": "生年月日", "type": "date", "required": true, "diffPriority": "high", "sourceLabels": ["受給者生年月日"] },
+        { "key": "employerName", "label": "勤務先", "type": "text", "required": true, "diffPriority": "high", "sourceLabels": ["氏名又は名称"], "note": "「支払者」の枠内" },
+        { "key": "employerAddress", "label": "勤務先の所在地", "type": "text", "required": false, "diffPriority": "normal", "sourceLabels": ["住所(居所)又は所在地"], "note": "「支払者」の枠内" },
+        { "key": "paymentAmount", "label": "支払金額(年収)", "type": "money", "required": true, "diffPriority": "high", "sourceLabels": ["支払金額"], "note": "左上の「内」の小さな数字は取らない" },
+        { "key": "salaryIncomeAfterDeduction", "label": "給与所得控除後の金額", "type": "money", "required": true, "diffPriority": "normal", "sourceLabels": ["給与所得控除後の金額", "給与所得控除後の金額(調整控除後)"] },
+        { "key": "totalDeductions", "label": "所得控除の額の合計額", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["所得控除の額の合計額"] },
+        { "key": "withholdingTax", "label": "源泉徴収税額", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["源泉徴収税額"] },
+        { "key": "socialInsurance", "label": "社会保険料等の金額", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["社会保険料等の金額"] },
+        { "key": "hiredOn", "label": "中途就職日", "type": "date", "required": false, "diffPriority": "high", "sourceLabels": ["中途就・退職", "就職"], "note": "入っている場合、支払金額は1年分ではない" },
+        { "key": "leftOn", "label": "中途退職日", "type": "date", "required": false, "diffPriority": "high", "sourceLabels": ["中途就・退職", "退職"], "note": "入っている場合、支払金額は1年分ではない" },
+        { "key": "secondaryEmployment", "label": "乙欄", "type": "boolean", "required": false, "diffPriority": "high", "sourceLabels": ["乙欄"], "note": "印がある場合は副業先の源泉徴収票で、主たる勤務先の年収ではない" }
+      ]
+    },
+    {
+      "id": "tax-certificate",
+      "title": "課税証明書・所得証明書",
+      "fields": [
+        { "key": "fiscalYear", "label": "年度", "type": "year", "required": true, "diffPriority": "high", "sourceLabels": ["令和○年度"] },
+        { "key": "incomeYear", "label": "対象年(所得の年)", "type": "year", "required": true, "diffPriority": "high", "sourceLabels": ["令和○年中の所得"], "note": "書かれていない場合は年度の前年" },
+        { "key": "name", "label": "氏名", "type": "text", "required": true, "diffPriority": "high", "sourceLabels": ["氏名"] },
+        { "key": "address", "label": "住所", "type": "text", "required": true, "diffPriority": "normal", "sourceLabels": ["住所"] },
+        { "key": "birthDate", "label": "生年月日", "type": "date", "required": false, "diffPriority": "high", "sourceLabels": ["生年月日"], "note": "記載のない自治体もある" },
+        { "key": "salaryRevenue", "label": "給与収入(年収)", "type": "money", "required": false, "diffPriority": "high", "sourceLabels": ["給与収入", "給与の収入金額", "給与収入金額"] },
+        { "key": "salaryIncome", "label": "給与所得", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["給与所得", "給与所得金額"] },
+        { "key": "totalIncome", "label": "合計所得金額", "type": "money", "required": true, "diffPriority": "high", "sourceLabels": ["合計所得金額", "総所得金額", "総所得金額等"] },
+        { "key": "totalDeductions", "label": "所得控除合計", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["所得控除合計", "所得控除額", "所得控除額合計"] },
+        { "key": "taxableIncome", "label": "課税標準額", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["課税標準額", "課税総所得金額"] },
+        { "key": "annualTax", "label": "年税額", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["年税額", "税額合計", "合計税額"] }
+      ]
+    },
+    {
+      "id": "resident-tax-notice",
+      "title": "住民税決定通知書",
+      "fields": [
+        { "key": "fiscalYear", "label": "年度", "type": "year", "required": true, "diffPriority": "high", "sourceLabels": ["令和○年度"] },
+        { "key": "incomeYear", "label": "対象年(所得の年)", "type": "year", "required": true, "diffPriority": "high", "sourceLabels": [], "note": "通知書には書かれないことが多い。年度の前年として計算する" },
+        { "key": "name", "label": "氏名", "type": "text", "required": true, "diffPriority": "high", "sourceLabels": ["氏名", "納税義務者 氏名"] },
+        { "key": "address", "label": "住所", "type": "text", "required": false, "diffPriority": "normal", "sourceLabels": ["住所", "納税義務者 住所"] },
+        { "key": "employerName", "label": "勤務先", "type": "text", "required": false, "diffPriority": "high", "sourceLabels": ["特別徴収義務者", "特別徴収義務者 名称"], "note": "特別徴収(会社員)の通知書のみ" },
+        { "key": "salaryRevenue", "label": "給与収入(年収)", "type": "money", "required": false, "diffPriority": "high", "sourceLabels": ["給与収入", "給与収入額"] },
+        { "key": "salaryIncome", "label": "給与所得", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["給与所得"] },
+        { "key": "totalIncome", "label": "合計所得金額", "type": "money", "required": true, "diffPriority": "high", "sourceLabels": ["合計所得金額", "総所得金額"] },
+        { "key": "totalDeductions", "label": "所得控除合計", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["所得控除額合計", "所得控除額"] },
+        { "key": "taxableIncome", "label": "課税標準額", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["課税標準額"] },
+        { "key": "annualTax", "label": "年税額", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["特別徴収税額", "年税額", "税額合計"] }
+      ]
+    },
+    {
+      "id": "tax-return",
+      "title": "確定申告書(第一表)",
+      "fields": [
+        { "key": "incomeYear", "label": "対象年(年分)", "type": "year", "required": true, "diffPriority": "high", "sourceLabels": ["令和○年分"] },
+        { "key": "name", "label": "氏名", "type": "text", "required": true, "diffPriority": "high", "sourceLabels": ["氏名"] },
+        { "key": "address", "label": "住所", "type": "text", "required": true, "diffPriority": "normal", "sourceLabels": ["住所"] },
+        { "key": "birthDate", "label": "生年月日", "type": "date", "required": true, "diffPriority": "high", "sourceLabels": ["生年月日"] },
+        { "key": "occupation", "label": "職業", "type": "text", "required": false, "diffPriority": "normal", "sourceLabels": ["職業"] },
+        { "key": "tradeName", "label": "屋号", "type": "text", "required": false, "diffPriority": "normal", "sourceLabels": ["屋号・雅号"] },
+        { "key": "businessRevenue", "label": "事業収入(営業等)", "type": "money", "required": false, "diffPriority": "high", "sourceLabels": ["事業 営業等"], "note": "「収入金額等」の区分" },
+        { "key": "businessIncome", "label": "事業所得(営業等)", "type": "money", "required": false, "diffPriority": "high", "sourceLabels": ["事業 営業等"], "note": "「所得金額等」の区分。収入と同じラベルなので区分で区別する" },
+        { "key": "salaryRevenue", "label": "給与収入", "type": "money", "required": false, "diffPriority": "high", "sourceLabels": ["給与"], "note": "「収入金額等」の区分" },
+        { "key": "totalIncome", "label": "所得金額の合計", "type": "money", "required": true, "diffPriority": "high", "sourceLabels": ["合計"], "note": "「所得金額等」の区分の合計" },
+        { "key": "totalDeductions", "label": "所得控除の合計", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["合計"], "note": "「所得から差し引かれる金額」の区分の合計" },
+        { "key": "taxableIncome", "label": "課税される所得金額", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["課税される所得金額"] },
+        { "key": "taxDue", "label": "申告納税額", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["申告納税額"], "note": "還付の場合は負の数(△)" }
+      ]
+    },
+    {
+      "id": "home-loan-application",
+      "title": "住宅ローン申込書",
+      "fields": [
+        { "key": "appliedOn", "label": "申込日", "type": "date", "required": false, "diffPriority": "normal", "sourceLabels": ["申込日", "申込年月日"] },
+        { "key": "name", "label": "氏名", "type": "text", "required": true, "diffPriority": "high", "sourceLabels": ["氏名", "お名前"] },
+        { "key": "birthDate", "label": "生年月日", "type": "date", "required": true, "diffPriority": "high", "sourceLabels": ["生年月日"] },
+        { "key": "age", "label": "年齢", "type": "number", "unit": "歳", "required": false, "diffPriority": "normal", "sourceLabels": ["年齢"] },
+        { "key": "address", "label": "現住所", "type": "text", "required": true, "diffPriority": "normal", "sourceLabels": ["現住所", "住所"] },
+        { "key": "employerName", "label": "勤務先", "type": "text", "required": true, "diffPriority": "high", "sourceLabels": ["勤務先名", "勤務先", "会社名"] },
+        { "key": "employmentType", "label": "雇用形態", "type": "text", "required": false, "diffPriority": "high", "sourceLabels": ["雇用形態"] },
+        { "key": "joinedOn", "label": "入社年月", "type": "yearMonth", "required": false, "diffPriority": "normal", "sourceLabels": ["入社年月", "入社年月日"] },
+        { "key": "yearsOfService", "label": "勤続年数", "type": "number", "unit": "年", "required": false, "diffPriority": "high", "sourceLabels": ["勤続年数"] },
+        { "key": "annualIncome", "label": "年収(税込・自己申告)", "type": "money", "required": true, "diffPriority": "high", "sourceLabels": ["前年度税込年収", "税込年収", "年収"], "note": "万円単位が多い" },
+        {
+          "key": "otherDebts", "label": "他の借入", "type": "list", "required": false, "diffPriority": "high", "sourceLabels": ["他の借入", "お借入状況"],
+          "items": [
+            { "key": "lender", "label": "借入先", "type": "text", "required": true, "sourceLabels": ["借入先"] },
+            { "key": "purpose", "label": "借入目的", "type": "text", "required": false, "sourceLabels": ["借入目的", "種類"] },
+            { "key": "balance", "label": "借入残高", "type": "money", "required": true, "sourceLabels": ["借入残高", "残高"] },
+            { "key": "annualRepayment", "label": "年間返済額", "type": "money", "required": false, "sourceLabels": ["年間返済額"] }
+          ]
+        },
+        { "key": "loanAmount", "label": "借入希望額", "type": "money", "required": true, "diffPriority": "high", "sourceLabels": ["借入希望額", "借入希望金額"] },
+        { "key": "loanYears", "label": "借入期間", "type": "number", "unit": "年", "required": false, "diffPriority": "normal", "sourceLabels": ["借入期間", "返済期間"] },
+        { "key": "propertyAddress", "label": "物件所在地", "type": "text", "required": false, "diffPriority": "high", "sourceLabels": ["物件所在地", "所在地"], "note": "勤務先の所在地と取り違えない" },
+        { "key": "propertyPrice", "label": "物件価格", "type": "money", "required": false, "diffPriority": "high", "sourceLabels": ["購入価格", "物件価格"] }
+      ]
+    },
+    {
+      "id": "rental-application",
+      "title": "入居申込書(賃貸)",
+      "fields": [
+        { "key": "appliedOn", "label": "申込日", "type": "date", "required": false, "diffPriority": "normal", "sourceLabels": ["申込日", "申込年月日"] },
+        { "key": "propertyName", "label": "物件名", "type": "text", "required": true, "diffPriority": "normal", "sourceLabels": ["物件名", "建物名", "マンション名"] },
+        { "key": "room", "label": "号室", "type": "text", "required": false, "diffPriority": "normal", "sourceLabels": ["号室", "部屋番号"] },
+        { "key": "rent", "label": "賃料", "type": "money", "required": false, "diffPriority": "normal", "sourceLabels": ["賃料", "家賃", "月額賃料"], "note": "管理費・共益費と合算しない" },
+        { "key": "applicant.name", "label": "申込者 氏名", "type": "text", "required": true, "diffPriority": "high", "sourceLabels": ["氏名", "お名前", "契約者名"] },
+        { "key": "applicant.birthDate", "label": "申込者 生年月日", "type": "date", "required": true, "diffPriority": "high", "sourceLabels": ["生年月日"] },
+        { "key": "applicant.age", "label": "申込者 年齢", "type": "number", "unit": "歳", "required": false, "diffPriority": "normal", "sourceLabels": ["年齢"] },
+        { "key": "applicant.address", "label": "申込者 現住所", "type": "text", "required": false, "diffPriority": "normal", "sourceLabels": ["現住所", "住所"] },
+        { "key": "applicant.employerName", "label": "申込者 勤務先", "type": "text", "required": true, "diffPriority": "high", "sourceLabels": ["勤務先", "勤務先名", "会社名", "勤務先(学校名)"] },
+        { "key": "applicant.employmentType", "label": "申込者 雇用形態", "type": "text", "required": false, "diffPriority": "high", "sourceLabels": ["雇用形態"] },
+        { "key": "applicant.yearsOfService", "label": "申込者 勤続年数", "type": "number", "unit": "年", "required": false, "diffPriority": "high", "sourceLabels": ["勤続年数", "勤続"] },
+        { "key": "applicant.annualIncome", "label": "申込者 年収(税込・自己申告)", "type": "money", "required": true, "diffPriority": "high", "sourceLabels": ["税込年収", "年収", "年間収入", "前年年収", "年収(税込)"], "note": "万円単位が多い" },
+        { "key": "guarantor.name", "label": "連帯保証人 氏名", "type": "text", "required": false, "diffPriority": "high", "sourceLabels": ["氏名"], "note": "保証会社を利用する場合は空欄" },
+        { "key": "guarantor.relationship", "label": "連帯保証人 続柄", "type": "text", "required": false, "diffPriority": "high", "sourceLabels": ["続柄", "申込者との関係"] },
+        { "key": "guarantor.birthDate", "label": "連帯保証人 生年月日", "type": "date", "required": false, "diffPriority": "normal", "sourceLabels": ["生年月日"] },
+        { "key": "guarantor.age", "label": "連帯保証人 年齢", "type": "number", "unit": "歳", "required": false, "diffPriority": "normal", "sourceLabels": ["年齢"] },
+        { "key": "guarantor.employerName", "label": "連帯保証人 勤務先", "type": "text", "required": false, "diffPriority": "high", "sourceLabels": ["勤務先", "勤務先名", "会社名"] },
+        { "key": "guarantor.yearsOfService", "label": "連帯保証人 勤続年数", "type": "number", "unit": "年", "required": false, "diffPriority": "normal", "sourceLabels": ["勤続年数", "勤続"] },
+        { "key": "guarantor.annualIncome", "label": "連帯保証人 年収(税込・自己申告)", "type": "money", "required": false, "diffPriority": "high", "sourceLabels": ["税込年収", "年収", "年間収入"] }
+      ]
+    }
+  ],
+  "crossDocument": [
+    {
+      "label": "年収(額面)",
+      "note": "出どころと信頼度が違う。公的書類(課税証明書など)> 勤務先の書類(源泉徴収票)> 自己申告(申込書)",
+      "fields": [
+        "withholding-slip.paymentAmount",
+        "tax-certificate.salaryRevenue",
+        "resident-tax-notice.salaryRevenue",
+        "tax-return.salaryRevenue",
+        "home-loan-application.annualIncome",
+        "rental-application.applicant.annualIncome"
+      ]
+    },
+    {
+      "label": "所得の合計",
+      "fields": ["tax-certificate.totalIncome", "resident-tax-notice.totalIncome", "tax-return.totalIncome"]
+    },
+    {
+      "label": "勤務先",
+      "fields": [
+        "withholding-slip.employerName",
+        "resident-tax-notice.employerName",
+        "home-loan-application.employerName",
+        "rental-application.applicant.employerName"
+      ]
+    },
+    {
+      "label": "生年月日",
+      "fields": [
+        "withholding-slip.birthDate",
+        "tax-certificate.birthDate",
+        "tax-return.birthDate",
+        "home-loan-application.birthDate",
+        "rental-application.applicant.birthDate"
+      ]
+    }
+  ]
+}

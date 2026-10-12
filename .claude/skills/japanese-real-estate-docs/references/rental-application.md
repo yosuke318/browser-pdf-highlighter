@@ -16,8 +16,7 @@
 
 ## 抽出項目
 
-キー名は `scripts/generate-samples/templates/rental-application.ts` の
-`expected` に合わせている。申込者は `applicant`、連帯保証人は `guarantor` の下に入れる。
+キー名は `schema/extraction-fields.json`(抽出項目の定義)に合わせている。申込者は `applicant`、連帯保証人は `guarantor` の下に入れる。
 
 | キー | 欄の名前(表記ゆれ) | 型 | 注意 |
 |---|---|---|---|
@@ -30,6 +29,7 @@
 | `*.age` | 年齢、満○歳 | number | 生年月日から計算した値と照合できる |
 | `*.address` | 現住所、住所 | text | |
 | `*.employerName` | 勤務先、勤務先名、会社名、勤務先(学校名) | text | 学生は学校名が入る |
+| `applicant.employmentType` | 雇用形態 | text | 正社員・契約社員・派遣・アルバイトなど |
 | `*.yearsOfService` | 勤続年数、勤続 | number(年) | 欄がなく「入社年月」だけの様式もある |
 | `*.annualIncome` | 税込年収、年収、年間収入、前年年収、年収(税込) | money | 「万円」単位が多い |
 | `guarantor.relationship` | 続柄、申込者との関係 | text | |
