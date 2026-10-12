@@ -1,0 +1,116 @@
+[
+  {
+    "file": "withholding-slip/text.pdf",
+    "document": "源泉徴収票(令和7年分)",
+    "pages": [
+      "text"
+    ],
+    "expected": "withholding-slip/expected.json"
+  },
+  {
+    "file": "withholding-slip/scan.pdf",
+    "document": "源泉徴収票(令和7年分)",
+    "pages": [
+      "scanned"
+    ],
+    "expected": "withholding-slip/expected.json"
+  },
+  {
+    "file": "pdf-kinds/searchable.pdf",
+    "document": "源泉徴収票(令和7年分)",
+    "pages": [
+      "searchable"
+    ],
+    "expected": "withholding-slip/expected.json",
+    "note": "複合機のOCR機能で作られる透明テキスト付きPDFを再現したもの"
+  },
+  {
+    "file": "tax-certificate/text.pdf",
+    "document": "課税(所得)証明書(令和8年度)",
+    "pages": [
+      "text"
+    ],
+    "expected": "tax-certificate/expected.json"
+  },
+  {
+    "file": "tax-certificate/scan.pdf",
+    "document": "課税(所得)証明書(令和8年度)",
+    "pages": [
+      "scanned"
+    ],
+    "expected": "tax-certificate/expected.json"
+  },
+  {
+    "file": "resident-tax-notice/text.pdf",
+    "document": "住民税決定通知書(特別徴収・納税義務者用、令和8年度)",
+    "pages": [
+      "text"
+    ],
+    "expected": "resident-tax-notice/expected.json"
+  },
+  {
+    "file": "resident-tax-notice/scan.pdf",
+    "document": "住民税決定通知書(特別徴収・納税義務者用、令和8年度)",
+    "pages": [
+      "scanned"
+    ],
+    "expected": "resident-tax-notice/expected.json"
+  },
+  {
+    "file": "tax-return/text.pdf",
+    "document": "確定申告書 第一表(令和7年分)",
+    "pages": [
+      "text"
+    ],
+    "expected": "tax-return/expected.json"
+  },
+  {
+    "file": "tax-return/scan.pdf",
+    "document": "確定申告書 第一表(令和7年分)",
+    "pages": [
+      "scanned"
+    ],
+    "expected": "tax-return/expected.json"
+  },
+  {
+    "file": "home-loan-application/text.pdf",
+    "document": "住宅ローン借入申込書",
+    "pages": [
+      "text"
+    ],
+    "expected": "home-loan-application/expected.json"
+  },
+  {
+    "file": "home-loan-application/scan.pdf",
+    "document": "住宅ローン借入申込書",
+    "pages": [
+      "scanned"
+    ],
+    "expected": "home-loan-application/expected.json"
+  },
+  {
+    "file": "rental-application/text.pdf",
+    "document": "入居申込書(賃貸)",
+    "pages": [
+      "text"
+    ],
+    "expected": "rental-application/expected.json"
+  },
+  {
+    "file": "rental-application/scan.pdf",
+    "document": "入居申込書(賃貸)",
+    "pages": [
+      "scanned"
+    ],
+    "expected": "rental-application/expected.json"
+  },
+  {
+    "file": "pdf-kinds/mixed.pdf",
+    "document": "確定申告書 第一表(令和7年分) + 源泉徴収票(令和7年分)",
+    "pages": [
+      "text",
+      "scanned"
+    ],
+    "note": "テキストPDFとスキャンPDFのページが混在するPDF"
+  }
+]
