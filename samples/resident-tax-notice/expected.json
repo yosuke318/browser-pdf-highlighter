@@ -1,0 +1,17 @@
+{
+  "document": "住民税決定通知書(特別徴収・納税義務者用、令和8年度)",
+  "issuer": "見本市(市区町村。勤務先経由で配付)",
+  "values": {
+    "fiscalYear": 2026,
+    "incomeYear": 2025,
+    "name": "山田 太郎",
+    "address": "見本県見本市サンプル町1丁目2番3号",
+    "employerName": "株式会社サンプル商事",
+    "salaryRevenue": 5800000,
+    "salaryIncome": 4200000,
+    "totalIncome": 4200000,
+    "totalDeductions": 1328000,
+    "taxableIncome": 2872000,
+    "annualTax": 287600
+  }
+}
