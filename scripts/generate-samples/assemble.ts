@@ -3,6 +3,7 @@ import fontkit from "@pdf-lib/fontkit";
 import {
   degrees,
   PDFDocument,
+  PDFName,
   popGraphicsState,
   pushGraphicsState,
   setTextRenderingMode,
@@ -36,7 +37,8 @@ export async function buildScanPdf(scans: ScannedPage[]): Promise<Uint8Array> {
 export async function buildSearchablePdf(scan: ScannedPage, skewDegrees: number): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const font = await doc.embedFont(await readFile(JAPANESE_FONT), { subset: true });
+  // customName を指定しないと、pdf-lib がフォント名にランダムな文字列を付ける
+  const font = await doc.embedFont(await readFile(JAPANESE_FONT), { subset: true, customName: "ArialUnicodeMS" });
   const image = await doc.embedJpg(scan.jpeg);
   const page = doc.addPage([A4_PT.width, A4_PT.height]);
   page.drawImage(image, { x: 0, y: 0, width: A4_PT.width, height: A4_PT.height });
@@ -74,5 +76,24 @@ export async function concatPdfs(sources: Uint8Array[]): Promise<Uint8Array> {
     const pages = await doc.copyPages(src, src.getPageIndices());
     for (const p of pages) doc.addPage(p);
   }
+  return doc.save();
+}
+
+/** 生成日時などに固定する日時(ダミーPDFの作成日) */
+const FIXED_DATE = new Date("2026-10-12T00:00:00Z");
+
+/**
+ * 何度生成しても同じバイト列になるよう、作成日時などの毎回変わる情報を固定する。
+ * Chrome が出力するPDFには生成時刻が、pdf-lib が作るPDFには保存時刻が入るため。
+ */
+export async function makeReproducible(bytes: Uint8Array): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+  doc.setCreationDate(FIXED_DATE);
+  doc.setModificationDate(FIXED_DATE);
+  doc.setProducer("scripts/generate-samples");
+  doc.setCreator("scripts/generate-samples");
+  // XMPメタデータとファイル識別子(ID)にも生成時の情報が入ることがあるので消す
+  doc.catalog.delete(PDFName.of("Metadata"));
+  doc.context.trailerInfo.ID = undefined;
   return doc.save();
 }

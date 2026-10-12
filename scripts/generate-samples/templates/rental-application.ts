@@ -143,6 +143,7 @@ export const rentalApplication: SampleDocument = {
       age: age(tanaka.birthDate, appliedOn),
       address: tanaka.address,
       employerName: tanaka.employer.name,
+      employmentType: tanaka.employer.employmentType,
       yearsOfService: tanakaYears,
       annualIncome: tanaka.annualIncome,
     },

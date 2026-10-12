@@ -1,4 +1,4 @@
-import type { Browser } from "playwright-core";
+import type { Browser, Page } from "playwright-core";
 import type { ScanProfile } from "./document.ts";
 
 // HTMLをブラウザ(Chrome)で描画し、テキストPDFとスキャン風の画像を作る。
@@ -25,10 +25,36 @@ export interface ScannedPage {
   textBoxes: TextBox[];
 }
 
+/**
+ * フォントの読み込みが終わるまで待つ。待たないと、読み込み前の代わりのフォントで
+ * 描画されることがあり、生成するたびに画像が変わってしまう。
+ */
+async function waitForFonts(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+}
+
+/**
+ * 2回続けて同じ画像になるまで撮り直す。OSが文字の足りないフォントを遅れて読み込むと、
+ * document.fonts.ready の後でも描画が変わることがあるため。
+ */
+async function stableScreenshot(page: Page): Promise<Buffer> {
+  let previous = await page.screenshot({ type: "png" });
+  for (let i = 0; i < 10; i++) {
+    await page.waitForTimeout(300);
+    const current = await page.screenshot({ type: "png" });
+    if (current.equals(previous)) return current;
+    previous = current;
+  }
+  throw new Error("描画が安定しません(フォントの読み込みが終わらない可能性があります)");
+}
+
 export async function renderTextPdf(browser: Browser, html: string): Promise<Uint8Array> {
   const page = await browser.newPage();
   try {
     await page.setContent(html, { waitUntil: "load" });
+    await waitForFonts(page);
     return await page.pdf({ preferCSSPageSize: true, printBackground: true });
   } finally {
     await page.close();
@@ -51,7 +77,8 @@ export async function renderScan(
     await context.addInitScript({ content: "globalThis.__name = (fn) => fn;" });
     const page = await context.newPage();
     await page.setContent(html, { waitUntil: "load" });
-    const png = await page.screenshot({ type: "png" });
+    await waitForFonts(page);
+    const png = await stableScreenshot(page);
     const textBoxes = await page.evaluate(collectTextBoxes);
 
     const output = {

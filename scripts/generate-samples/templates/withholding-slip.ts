@@ -118,7 +118,7 @@ export const withholdingSlip: SampleDocument = {
   html: () => page(body, css),
   scan: CLEAN_SCAN,
   expected: {
-    year: 2025,
+    incomeYear: 2025,
     name: yamada.name,
     address: yamada.address,
     birthDate: yamada.birthDate,
