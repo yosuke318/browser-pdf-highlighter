@@ -5,7 +5,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
-import { buildScanPdf, buildSearchablePdf, concatPdfs } from "./assemble.ts";
+import { buildScanPdf, buildSearchablePdf, concatPdfs, makeReproducible } from "./assemble.ts";
 import type { SampleDocument } from "./document.ts";
 import { renderScan, renderTextPdf } from "./render.ts";
 import { homeLoanApplication } from "./templates/home-loan-application.ts";
@@ -54,9 +54,9 @@ async function main(): Promise<void> {
       const dir = join(OUT_DIR, doc.id);
       await mkdir(dir, { recursive: true });
 
-      const textPdf = await renderTextPdf(browser, doc.html({ scan: false }));
+      const textPdf = await makeReproducible(await renderTextPdf(browser, doc.html({ scan: false })));
       const scan = await renderScan(browser, doc.html({ scan: true }), doc.scan, 1000 + index);
-      const scanPdf = await buildScanPdf([scan]);
+      const scanPdf = await makeReproducible(await buildScanPdf([scan]));
       textPdfs.set(doc.id, textPdf);
       scanPdfs.set(doc.id, scanPdf);
 
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
       );
 
       if (doc.id === withholdingSlip.id) {
-        const searchable = await buildSearchablePdf(scan, doc.scan.skewDegrees);
+        const searchable = await makeReproducible(await buildSearchablePdf(scan, doc.scan.skewDegrees));
         await mkdir(join(OUT_DIR, "pdf-kinds"), { recursive: true });
         await writeFile(join(OUT_DIR, "pdf-kinds/searchable.pdf"), searchable);
         manifest.push({
@@ -88,7 +88,7 @@ async function main(): Promise<void> {
     }
 
     // 作成コーナーで作った確定申告書(テキストPDF)に、スキャンした源泉徴収票を添付した想定
-    const mixed = await concatPdfs([textPdfs.get(taxReturn.id)!, scanPdfs.get(withholdingSlip.id)!]);
+    const mixed = await makeReproducible(await concatPdfs([textPdfs.get(taxReturn.id)!, scanPdfs.get(withholdingSlip.id)!]));
     await writeFile(join(OUT_DIR, "pdf-kinds/mixed.pdf"), mixed);
     manifest.push({
       file: "pdf-kinds/mixed.pdf",
