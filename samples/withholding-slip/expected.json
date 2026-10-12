@@ -1,0 +1,17 @@
+{
+  "document": "源泉徴収票(令和7年分)",
+  "issuer": "株式会社サンプル商事(勤務先)",
+  "values": {
+    "year": 2025,
+    "name": "山田 太郎",
+    "address": "見本県見本市サンプル町1丁目2番3号",
+    "birthDate": "1988-04-15",
+    "employerName": "株式会社サンプル商事",
+    "employerAddress": "見本県見本市中央1丁目1番1号",
+    "paymentAmount": 5800000,
+    "salaryIncomeAfterDeduction": 4200000,
+    "totalDeductions": 1590000,
+    "withholdingTax": 166900,
+    "socialInsurance": 870000
+  }
+}
