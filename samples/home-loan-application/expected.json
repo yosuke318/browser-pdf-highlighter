@@ -1,0 +1,28 @@
+{
+  "document": "住宅ローン借入申込書",
+  "issuer": "サンプル銀行(金融機関の独自様式)",
+  "values": {
+    "appliedOn": "2026-09-20",
+    "name": "山田 太郎",
+    "birthDate": "1988-04-15",
+    "age": 38,
+    "address": "見本県見本市サンプル町1丁目2番3号",
+    "employerName": "株式会社サンプル商事",
+    "employmentType": "正社員",
+    "joinedOn": "2011-04",
+    "yearsOfService": 15,
+    "annualIncome": 5800000,
+    "otherDebts": [
+      {
+        "lender": "見本ファイナンス",
+        "purpose": "自動車ローン",
+        "balance": 1200000,
+        "annualRepayment": 360000
+      }
+    ],
+    "loanAmount": 40000000,
+    "loanYears": 35,
+    "propertyAddress": "見本県見本市緑町2丁目3番4号",
+    "propertyPrice": 45000000
+  }
+}
