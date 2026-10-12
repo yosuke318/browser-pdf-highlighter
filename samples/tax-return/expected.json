@@ -1,0 +1,18 @@
+{
+  "document": "確定申告書 第一表(令和7年分)",
+  "issuer": "本人作成(様式は国税庁)",
+  "values": {
+    "year": 2025,
+    "name": "佐藤 花子",
+    "address": "見本県見本市北町4丁目5番6号",
+    "birthDate": "1983-07-07",
+    "occupation": "デザイナー",
+    "tradeName": "さとうデザイン事務所",
+    "businessRevenue": 9600000,
+    "businessIncome": 3850000,
+    "totalIncome": 3850000,
+    "totalDeductions": 2540000,
+    "taxableIncome": 1310000,
+    "taxDue": 66800
+  }
+}
