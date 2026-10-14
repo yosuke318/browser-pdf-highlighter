@@ -1,6 +1,6 @@
 {
-  "version": "0.1.0",
-  "status": "案(利用者と未合意)",
+  "version": "1.0.0",
+  "status": "利用者と合意済み(2026-10-13)",
   "description": "書類ごとの抽出項目の定義。説明は docs/extraction-fields.md を参照。",
   "types": {
     "text": "文字列",
