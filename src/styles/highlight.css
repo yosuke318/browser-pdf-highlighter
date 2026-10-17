@@ -1,0 +1,255 @@
+/*
+ * 蛍光ペン風のハイライト。承認済みのUIデザイン(UIトークン)の値:
+ * - 文字の下 36%〜92% を塗るマーカー表現。透明度 85%、角丸 3/6/4/5px で手引き風の縁
+ * - 先頭に記号チップを付け、色だけに頼らない
+ * - 選択中はアクセント色 2px のリング(オフセット 2px)
+ * - 差分は、記号・色・線種の3つで区別する
+ */
+
+:root {
+  --hl-name: #ffe45c;
+  --hl-name-ink: #5a4a00;
+  --hl-birth: #ffa8d2;
+  --hl-birth-ink: #6e1546;
+  --hl-work: #9ad7ff;
+  --hl-work-ink: #0b4566;
+  --hl-money: #ffb36b;
+  --hl-money-ink: #6b3300;
+  --hl-address: #8be3a8;
+  --hl-address-ink: #0e4d27;
+  --hl-property: #cdb4ff;
+  --hl-property-ink: #3e2380;
+  --hl-other: #d9d9d3;
+  --hl-other-ink: #3a3c42;
+
+  --hl-low-confidence: #b45309;
+
+  --diff-changed: #fff0c2;
+  --diff-changed-ink: #7a5200;
+  --diff-added: #e3edff;
+  --diff-added-ink: #1d5fd1;
+  --diff-removed: #fde6da;
+  --diff-removed-ink: #a8380b;
+  --diff-notation: #efefec;
+  --diff-notation-ink: #4a4e57;
+  --diff-same: #e6f4ec;
+  --diff-same-ink: #11603a;
+}
+
+/* ページとハイライトを重ねる入れ物 */
+.page-view {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+}
+
+.highlight-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.highlight {
+  --marker: var(--hl-other);
+  --marker-ink: var(--hl-other-ink);
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px 6px 4px 5px;
+  /* 文字の上から 36%〜92% を塗る(向きはページの回転に合わせて、下の .highlight-layer--to-* で決める) */
+  --marker-fill: color-mix(in srgb, var(--marker) 85%, transparent);
+  --marker-stops: transparent 36%, var(--marker-fill) 36%, var(--marker-fill) 92%, transparent 92%;
+  background: linear-gradient(to bottom, var(--marker-stops));
+  /* PDFの文字の色を残したまま、上から色を重ねる */
+  mix-blend-mode: multiply;
+  /* 手で引いたように、わずかに傾ける */
+  transform: rotate(-0.4deg);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.highlight-layer--to-left .highlight {
+  background: linear-gradient(to left, var(--marker-stops));
+}
+.highlight-layer--to-top .highlight {
+  background: linear-gradient(to top, var(--marker-stops));
+}
+.highlight-layer--to-right .highlight {
+  background: linear-gradient(to right, var(--marker-stops));
+}
+
+.highlight:focus-visible,
+.highlight--selected {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.highlight--name {
+  --marker: var(--hl-name);
+  --marker-ink: var(--hl-name-ink);
+}
+.highlight--birth {
+  --marker: var(--hl-birth);
+  --marker-ink: var(--hl-birth-ink);
+}
+.highlight--work {
+  --marker: var(--hl-work);
+  --marker-ink: var(--hl-work-ink);
+}
+.highlight--money {
+  --marker: var(--hl-money);
+  --marker-ink: var(--hl-money-ink);
+}
+.highlight--address {
+  --marker: var(--hl-address);
+  --marker-ink: var(--hl-address-ink);
+}
+.highlight--property {
+  --marker: var(--hl-property);
+  --marker-ink: var(--hl-property-ink);
+}
+
+/* 記号チップ。値のすぐ左にはラベルの文字があることが多いので、ハイライトの左上の角の外側に小さく付ける */
+.highlight__symbol {
+  position: absolute;
+  bottom: calc(100% - 5px);
+  right: calc(100% - 5px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-chip);
+  background: var(--marker);
+  color: var(--marker-ink);
+  font-family: var(--font-sans);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.9);
+}
+
+/* 読み取りの確からしさが低い値は、波線の下線を引く */
+.highlight--low-confidence::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -4px;
+  left: 0;
+  height: 4px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Cpath d='M0 3 Q2 0 4 3 T8 3' fill='none' stroke='%23b45309' stroke-width='1.2'/%3E%3C/svg%3E")
+    repeat-x;
+}
+
+/* 差分のハイライト(前回資料との比較) */
+.highlight[class*="highlight--diff-"] {
+  background: color-mix(in srgb, var(--marker) 85%, transparent);
+}
+.highlight--diff-changed {
+  --marker: var(--diff-changed);
+  border-bottom: 2px dotted var(--diff-changed-ink);
+}
+.highlight--diff-added {
+  --marker: var(--diff-added);
+  border-bottom: 2px solid var(--diff-added-ink);
+}
+.highlight--diff-removed {
+  --marker: var(--diff-removed);
+  /* 取り消し線: 高さの真ん中に線を引く */
+  background:
+    linear-gradient(
+      to bottom,
+      transparent calc(50% - 1px),
+      var(--diff-removed-ink) calc(50% - 1px),
+      var(--diff-removed-ink) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    color-mix(in srgb, var(--diff-removed) 85%, transparent);
+}
+.highlight--diff-notation {
+  --marker: var(--diff-notation);
+  border-bottom: 2px dashed var(--diff-notation-ink);
+}
+.highlight--diff-uncomparable {
+  --marker: transparent;
+  outline: 2px dashed var(--diff-notation-ink);
+  outline-offset: 1px;
+}
+.highlight--diff-same {
+  --marker: var(--diff-same);
+}
+
+/* 凡例 */
+.highlight-legend h3 {
+  margin-bottom: var(--space-2);
+  color: var(--color-ink-2);
+  font-size: var(--font-size-small);
+  font-weight: 500;
+}
+
+.highlight-legend ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.highlight-legend li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.highlight-legend__label {
+  min-width: 108px;
+  font-weight: 500;
+}
+
+.highlight-legend__description {
+  color: var(--color-ink-2);
+  font-size: var(--font-size-small);
+}
+
+.highlight-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-chip);
+  font-size: var(--font-size-caption);
+  font-weight: 700;
+  line-height: 1;
+}
+.highlight-chip--name {
+  background: var(--hl-name);
+  color: var(--hl-name-ink);
+}
+.highlight-chip--birth {
+  background: var(--hl-birth);
+  color: var(--hl-birth-ink);
+}
+.highlight-chip--work {
+  background: var(--hl-work);
+  color: var(--hl-work-ink);
+}
+.highlight-chip--money {
+  background: var(--hl-money);
+  color: var(--hl-money-ink);
+}
+.highlight-chip--address {
+  background: var(--hl-address);
+  color: var(--hl-address-ink);
+}
+.highlight-chip--property {
+  background: var(--hl-property);
+  color: var(--hl-property-ink);
+}
+.highlight-chip--other {
+  background: var(--hl-other);
+  color: var(--hl-other-ink);
+}

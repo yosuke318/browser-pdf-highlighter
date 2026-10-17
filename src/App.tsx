@@ -5,6 +5,11 @@ import { DocumentTypeCard } from "./components/DocumentTypeCard.tsx";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { AlertIcon, DocumentIcon, LockIcon, UploadIcon } from "./components/icons.tsx";
 import { ResultPanel } from "./components/ResultPanel.tsx";
+import { extractDocument } from "./extract/engine.ts";
+import { DOCUMENT_DEFINITIONS } from "./extract/load-definitions.ts";
+import { HighlightLayer } from "./highlight/HighlightLayer.tsx";
+import { HighlightLegend } from "./highlight/HighlightLegend.tsx";
+import { highlightsFromExtraction, type ToScreen } from "./highlight/highlights.ts";
 import { OpenPdfError, openErrorMessage } from "./pdf/open-file.ts";
 import type { ReadMethod } from "./pdf/page-kind.ts";
 import { openPdf, readPdfPage } from "./pdf/pdfjs.ts";
@@ -33,6 +38,8 @@ export function App() {
   const [methodOverrides, setMethodOverrides] = useState<Record<number, ReadMethod>>({});
   // 利用者が手動で選んだ書類タイプ(ページ番号 → 書類ID)。複数の書類を結合したPDFのため、ページごとに持つ
   const [typeOverrides, setTypeOverrides] = useState<Record<number, string>>({});
+  // 選択中のハイライト(項目のキー)
+  const [selectedHighlight, setSelectedHighlight] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pageAreaRef, areaWidth] = useElementWidth<HTMLDivElement>();
   // 後から始めた読み込みだけを反映するための番号
@@ -134,6 +141,40 @@ export function App() {
     [reading, method],
   );
 
+  // 表示中のページの書類タイプ(手動で選んだもの、なければ自動判定)の書類定義で、値を抽出する。
+  // 書類定義がまだない書類タイプでは抽出しない。複数ページにまたがる書類の扱いは、抽出結果の一覧を作るときに決める
+  const documentType = reading ? (typeOverrides[reading.pageNumber] ?? typeGuess?.documentId ?? null) : null;
+  const extraction = useMemo(() => {
+    const rules = DOCUMENT_DEFINITIONS.find((d) => d.id === documentType);
+    if (!reading || method !== "pdf" || !rules) return null;
+    return extractDocument(rules, [{ pageNumber: reading.pageNumber, view: reading.view, segments: reading.pdfSegments }]);
+  }, [reading, method, documentType]);
+  const highlights = useMemo(
+    () =>
+      extraction && reading && page?.pageNumber === reading.pageNumber
+        ? highlightsFromExtraction(extraction, reading.pageNumber)
+        : [],
+    [extraction, reading, page],
+  );
+  const toScreen = useMemo<ToScreen | null>(() => {
+    if (!page) return null;
+    const viewport = page.getViewport({ scale });
+    return (rect) => {
+      // 長方形の4つの角を画面の座標に変換し、それを囲む長方形にする(ページが回転していても正しく囲める)
+      const corners = [
+        [rect.x0, rect.y0],
+        [rect.x1, rect.y0],
+        [rect.x0, rect.y1],
+        [rect.x1, rect.y1],
+      ].map(([x = 0, y = 0]) => viewport.convertToViewportPoint(x, y) as [number, number]);
+      const xs = corners.map((c) => c[0]);
+      const ys = corners.map((c) => c[1]);
+      const left = Math.min(...xs);
+      const top = Math.min(...ys);
+      return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
+    };
+  }, [page, scale]);
+
   function changeDocumentType(documentId: string | null) {
     if (!reading) return;
     const pageNumber = reading.pageNumber;
@@ -217,7 +258,20 @@ export function App() {
           {reading && method === "ocr" && <OcrNotice kind={reading.classification.kind} overridden={overridden} />}
           {opened ? (
             <div ref={pageAreaRef} className="page-area">
-              {page && <PageCanvas page={page} scale={scale} onError={handleRenderError} />}
+              {page && (
+                <div className="page-view">
+                  <PageCanvas page={page} scale={scale} onError={handleRenderError} />
+                  {toScreen && highlights.length > 0 && (
+                    <HighlightLayer
+                      highlights={highlights}
+                      toScreen={toScreen}
+                      rotation={page.rotate}
+                      selectedId={selectedHighlight}
+                      onSelect={setSelectedHighlight}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             !loading && <EmptyState onChooseFile={openDialog} />
@@ -232,6 +286,7 @@ export function App() {
               onChange={changeDocumentType}
             />
           )}
+          <HighlightLegend />
         </ResultPanel>
       </div>
 

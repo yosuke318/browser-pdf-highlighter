@@ -88,7 +88,11 @@ async function main(): Promise<void> {
     }
 
     // 作成コーナーで作った確定申告書(テキストPDF)に、スキャンした源泉徴収票を添付した想定
-    const mixed = await makeReproducible(await concatPdfs([textPdfs.get(taxReturn.id)!, scanPdfs.get(withholdingSlip.id)!]));
+    const taxReturnTextPdf = textPdfs.get(taxReturn.id);
+    if (!taxReturnTextPdf) throw new Error(`Text PDF not found: ${taxReturn.id}`);
+    const withholdingScanPdf = scanPdfs.get(withholdingSlip.id);
+    if (!withholdingScanPdf) throw new Error(`Scan PDF not found: ${withholdingSlip.id}`);
+    const mixed = await makeReproducible(await concatPdfs([taxReturnTextPdf, withholdingScanPdf]));
     await writeFile(join(OUT_DIR, "pdf-kinds/mixed.pdf"), mixed);
     manifest.push({
       file: "pdf-kinds/mixed.pdf",
