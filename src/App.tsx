@@ -1,5 +1,7 @@
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
-import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { guessDocumentType } from "./classify/document-type.ts";
+import { DocumentTypeCard } from "./components/DocumentTypeCard.tsx";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { AlertIcon, DocumentIcon, LockIcon, UploadIcon } from "./components/icons.tsx";
 import { ResultPanel } from "./components/ResultPanel.tsx";
@@ -29,6 +31,8 @@ export function App() {
   // ページごとの読み取り結果と、利用者が手動で選んだ読み取り方法(ページ番号 → 方法)
   const [reading, setReading] = useState<PageReading | null>(null);
   const [methodOverrides, setMethodOverrides] = useState<Record<number, ReadMethod>>({});
+  // 利用者が手動で選んだ書類タイプ(ページ番号 → 書類ID)。複数の書類を結合したPDFのため、ページごとに持つ
+  const [typeOverrides, setTypeOverrides] = useState<Record<number, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pageAreaRef, areaWidth] = useElementWidth<HTMLDivElement>();
   // 後から始めた読み込みだけを反映するための番号
@@ -52,6 +56,7 @@ export function App() {
       setPage(null);
       setReading(null);
       setMethodOverrides({});
+      setTypeOverrides({});
       setPageNumber(1);
       setZoom({ mode: "fit-width" });
     } catch (e) {
@@ -122,6 +127,23 @@ export function App() {
   const override = reading ? methodOverrides[reading.pageNumber] : undefined;
   const method = override ?? reading?.classification.method;
   const overridden = override !== undefined && override !== reading?.classification.method;
+
+  // 書類タイプの判定は、pdf.js の文字を使うページだけで行う(OCR のページは OCR に対応したら判定する)
+  const typeGuess = useMemo(
+    () => (reading ? guessDocumentType(method === "pdf" ? reading.pdfSegments : []) : null),
+    [reading, method],
+  );
+
+  function changeDocumentType(documentId: string | null) {
+    if (!reading) return;
+    const pageNumber = reading.pageNumber;
+    setTypeOverrides((current) => {
+      const next = { ...current };
+      if (documentId === null) delete next[pageNumber];
+      else next[pageNumber] = documentId;
+      return next;
+    });
+  }
 
   function toggleMethod() {
     if (!reading || !method) return;
@@ -201,7 +223,16 @@ export function App() {
             !loading && <EmptyState onChooseFile={openDialog} />
           )}
         </main>
-        <ResultPanel />
+        <ResultPanel>
+          {reading && typeGuess && (
+            <DocumentTypeCard
+              pageNumber={reading.pageNumber}
+              guess={typeGuess}
+              override={typeOverrides[reading.pageNumber]}
+              onChange={changeDocumentType}
+            />
+          )}
+        </ResultPanel>
       </div>
 
       {dragging && (
