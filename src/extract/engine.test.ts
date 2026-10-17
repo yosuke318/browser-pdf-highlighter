@@ -65,6 +65,26 @@ describe("ラベルの近くから値を取る", () => {
     expect(field("birthDate")?.bbox).toHaveLength(4);
   });
 
+  it("金額の直後に単位だけのセルがあれば、単位も含めて換算する", () => {
+    const { field } = run({ paymentAmount: [{ kind: "label", labels: ["支払金額"], direction: "right" }] }, [
+      page([cell("支払金額", 50, 700), cell("420", 150, 700), cell("万円", 185, 700)]),
+    ]);
+    expect(field("paymentAmount")).toMatchObject({ value: 4_200_000, rawText: "420 万円" });
+  });
+
+  it("日付の後ろに年齢などが続いていても、日付の部分を取る", () => {
+    const { field } = run({ birthDate: [{ kind: "label", labels: ["生年月日"], direction: "right" }] }, [
+      page([
+        cell("生年月日", 50, 700),
+        cell("昭和40年", 150, 700),
+        cell("1", 210, 700),
+        cell("月", 222, 700),
+        cell("20日(61歳)", 235, 700),
+      ]),
+    ]);
+    expect(field("birthDate")?.value).toBe("1965-01-20");
+  });
+
   it("ラベルと値が1つのセルになっていれば、ラベルの続きを取る", () => {
     const { field } = run({ withholdingTax: [{ kind: "label", labels: ["源泉徴収税額"], direction: "right" }] }, [
       page([cell("源泉徴収税額166,900円", 50, 700)]),
