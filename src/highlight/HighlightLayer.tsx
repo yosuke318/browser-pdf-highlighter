@@ -28,14 +28,15 @@ export function HighlightLayer({ highlights, toScreen, rotation, selectedId, onS
   return (
     <div className={`highlight-layer highlight-layer--${direction}`}>
       {highlights.flatMap((h) =>
-        h.rects.map((rect, i) => {
+        h.rects.map((rect) => {
           const box = toScreen(rect);
           const style: CSSProperties = { left: box.left, top: box.top, width: box.width, height: box.height };
           const selected = selectedId === h.id;
+          const rectKey = `${rect.x0}:${rect.y0}:${rect.x1}:${rect.y1}`;
           return (
             <button
               type="button"
-              key={`${h.id}:${i}`}
+              key={`${h.id}:${rectKey}`}
               className={className(h, selected)}
               style={style}
               title={h.label}
@@ -43,7 +44,7 @@ export function HighlightLayer({ highlights, toScreen, rotation, selectedId, onS
               aria-pressed={selected}
               onClick={() => onSelect?.(selected ? null : h.id)}
             >
-              {i === 0 && h.kind.type === "field" && (
+              {rect === h.rects[0] && h.kind.type === "field" && (
                 <span className="highlight__symbol" aria-hidden="true">
                   {CATEGORIES[h.kind.category].symbol}
                 </span>
