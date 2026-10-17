@@ -143,6 +143,24 @@ function scope(page: ExtractionPage, rule: { section?: Section; region?: Relativ
   return segments;
 }
 
+/** 縦書きの見出し(縦長で2文字以上のセル) */
+function isVerticalHeading(s: TextSegment): boolean {
+  return height(s.bbox) > (s.bbox.x1 - s.bbox.x0) * 1.5 && [...s.text].length >= 2;
+}
+
+/**
+ * ラベルの区分(左にある縦書きの見出し)。左にある縦書きの見出しのうち、最も近い列にあるものから、
+ * 縦の位置が最も近いものを選ぶ
+ */
+function sideHeadingOf(anchor: TextSegment, segments: TextSegment[]): TextSegment | undefined {
+  const left = segments.filter((s) => isVerticalHeading(s) && s.bbox.x1 <= anchor.bbox.x0 + height(anchor.bbox) / 2);
+  if (left.length === 0) return undefined;
+  const nearestColumn = Math.max(...left.map((s) => s.bbox.x1));
+  return left
+    .filter((s) => nearestColumn - s.bbox.x1 < height(anchor.bbox) * 2)
+    .sort((p, q) => Math.abs(centerY(p.bbox) - centerY(anchor.bbox)) - Math.abs(centerY(q.bbox) - centerY(anchor.bbox)))[0];
+}
+
 // ---- 値の候補を、型に合わせて変換する ----
 
 function accepted(rule: { accept?: RegExp; reject?: RegExp }, raw: string): boolean {
@@ -205,10 +223,17 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
 
   const inline = rule.inline ?? type !== "text";
 
+  const sideHeadings = rule.sideHeading?.map((h) => normalizeText(h).text);
+
   for (const anchor of segments) {
     const n = norm(anchor);
     const label = labels.find((l) => n.text === l || (inline && n.text.startsWith(l)));
     if (label === undefined) continue;
+    if (sideHeadings) {
+      // 区分の見出しは、範囲を絞る前のページ全体から探す
+      const heading = sideHeadingOf(anchor, page.segments);
+      if (!heading || !sideHeadings.includes(norm(heading).text)) continue;
+    }
 
     // ラベルと値が1つのセルになっている(「(受給者番号)00123」など)。
     // 続きが値にならなければ(「課税標準額(総所得)」のようにラベルに補足が付いているだけなら)、隣のセルを探す
