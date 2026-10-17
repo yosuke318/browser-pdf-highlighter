@@ -99,6 +99,17 @@ describe("ラベルの近くから値を取る", () => {
     expect(field("salaryIncomeAfterDeduction")?.value).toBe(4_200_000);
   });
 
+  it("prefer: largest なら、近さより文字の大きさで選ぶ", () => {
+    const small = { ...cell("1,200,000", 140, 690), bbox: { x0: 140, y0: 690, x1: 194, y1: 696 } };
+    const segments = [cell("支払金額", 150, 700), small, cell("5,800,000", 180, 675)];
+    const nearest = run({ paymentAmount: [{ kind: "label", labels: ["支払金額"], direction: "below" }] }, [page(segments)]);
+    expect(nearest.field("paymentAmount")?.value).toBe(1_200_000);
+    const largest = run({ paymentAmount: [{ kind: "label", labels: ["支払金額"], direction: "below", prefer: "largest" }] }, [
+      page(segments),
+    ]);
+    expect(largest.field("paymentAmount")?.value).toBe(5_800_000);
+  });
+
   it("最大の距離より遠い値は取らない", () => {
     const { field } = run({ name: [{ kind: "label", labels: ["氏名"], direction: "right", maxDistance: 2 }] }, [
       page([cell("氏名", 50, 700), cell("山田太郎", 300, 700)]),
