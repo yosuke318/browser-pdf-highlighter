@@ -48,5 +48,6 @@ describe("正解データの値が、取り出した文字の中に見つかる�
       report[entry.file] = coverage;
     }
     await expect(`${JSON.stringify(report, null, 2)}\n`).toMatchFileSnapshot("./__snapshots__/text-coverage.json");
-  });
+    // ダミーPDFをすべて読むので、ほかのテストと同時に走ると既定の 5 秒を超えることがある
+  }, 60_000);
 });
