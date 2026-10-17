@@ -526,3 +526,316 @@ button {
 .result-panel__card .badge--neutral {
   background: var(--color-surface);
 }
+
+/* 抽出結果の一覧 */
+
+.result-panel__note {
+  color: var(--color-ink-2);
+  font-size: var(--font-size-small);
+}
+
+.result-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.result-list__header h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-subheading);
+  font-weight: 700;
+}
+
+.result-list__pages {
+  color: var(--color-ink-3);
+  font-size: var(--font-size-caption);
+  font-weight: 400;
+}
+
+.result-list__counts {
+  margin-top: var(--space-1);
+  color: var(--color-ink-2);
+  font-size: var(--font-size-small);
+}
+
+.result-list__counts b {
+  color: var(--color-ink);
+}
+
+.result-list__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.chip {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-badge);
+  background: var(--color-surface);
+  color: var(--color-ink-2);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+}
+
+.chip[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+.result-list__items {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-line);
+}
+
+.result-list__empty {
+  padding: var(--space-3) 0;
+  color: var(--color-ink-3);
+  font-size: var(--font-size-small);
+}
+
+.field-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "chip body status"
+    "chip body page";
+  column-gap: var(--space-2);
+  padding: var(--space-3) var(--space-1);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.field-item--selected {
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.field-item > .highlight-chip {
+  grid-area: chip;
+  margin-top: 2px;
+}
+
+.field-item__body {
+  grid-area: body;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.field-item__main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.field-item__main:disabled {
+  cursor: default;
+}
+
+.field-item__main:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.field-item__label {
+  color: var(--color-ink-2);
+  font-size: var(--font-size-caption);
+}
+
+.field-item__optional {
+  margin-left: 2px;
+  color: var(--color-ink-3);
+}
+
+.field-item__value {
+  font-weight: 500;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.field-item__value--missing {
+  color: var(--color-ink-3);
+  font-weight: 400;
+}
+
+.field-item--missing {
+  border-left: 2px dashed var(--color-line-strong);
+}
+
+.field-item__note {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-ink-3);
+  font-size: var(--font-size-caption);
+}
+
+.field-item__note--warning {
+  color: var(--hl-low-confidence);
+}
+
+.field-item--attention .field-item__value {
+  text-decoration: underline wavy var(--hl-low-confidence);
+  text-underline-offset: 4px;
+}
+
+.field-item--edited .field-item__value {
+  text-decoration: underline double var(--color-accent);
+  text-underline-offset: 4px;
+}
+
+.field-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.field-item__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field-item__error {
+  color: var(--color-error);
+  font-size: var(--font-size-caption);
+}
+
+.field-item__status {
+  grid-area: status;
+  justify-self: end;
+  align-self: start;
+}
+
+.field-item__status--confirmed,
+.field-item__status--edited {
+  background: var(--color-safe-bg);
+  color: var(--color-safe);
+}
+
+.field-item__status--attention {
+  background: var(--color-ocr-bg);
+  color: var(--color-ocr);
+}
+
+.field-item__status--unconfirmed,
+.field-item__status--missing {
+  background: var(--color-bg);
+  color: var(--color-ink-2);
+}
+
+.field-item__page {
+  grid-area: page;
+  justify-self: end;
+  align-self: end;
+  color: var(--color-ink-3);
+  font-size: var(--font-size-caption);
+}
+
+.result-list__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.button--small {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: var(--font-size-small);
+}
+
+.input {
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-button);
+  font: inherit;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
+/* PDF上で範囲を選ぶ */
+
+.range-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 10px var(--space-6);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  color: var(--color-ink);
+  font-size: var(--font-size-small);
+}
+
+.range-notice__error {
+  display: block;
+  color: var(--color-error);
+}
+
+.range-selector {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.range-selector__box {
+  position: absolute;
+  border: 2px dashed var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+/* 印刷: 抽出結果の一覧だけを出す */
+
+@media print {
+  .app-header,
+  .viewer,
+  .document-type__select-label,
+  .result-panel .select,
+  .result-list__filters,
+  .result-list__footer,
+  .field-item__actions,
+  .highlight-legend,
+  .result-panel__card {
+    display: none !important;
+  }
+
+  .result-panel {
+    border: 0;
+    max-width: none;
+    flex: 1 1 auto;
+  }
+
+  .field-item {
+    break-inside: avoid;
+  }
+}

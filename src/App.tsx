@@ -1,20 +1,24 @@
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { guessDocumentType } from "./classify/document-type.ts";
+import { DOCUMENT_TYPES } from "./classify/document-type.ts";
 import { DocumentTypeCard } from "./components/DocumentTypeCard.tsx";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { AlertIcon, DocumentIcon, LockIcon, UploadIcon } from "./components/icons.tsx";
 import { ResultPanel } from "./components/ResultPanel.tsx";
-import { extractDocument } from "./extract/engine.ts";
-import { DOCUMENT_DEFINITIONS } from "./extract/load-definitions.ts";
+import { convertValue } from "./extract/convert.ts";
 import { HighlightLayer } from "./highlight/HighlightLayer.tsx";
 import { HighlightLegend } from "./highlight/HighlightLegend.tsx";
-import { highlightsFromExtraction, type ToScreen } from "./highlight/highlights.ts";
+import { highlightsFromReviewed, type ToScreen } from "./highlight/highlights.ts";
 import { OpenPdfError, openErrorMessage } from "./pdf/open-file.ts";
 import type { ReadMethod } from "./pdf/page-kind.ts";
-import { openPdf, readPdfPage } from "./pdf/pdfjs.ts";
-import type { PageReading } from "./pdf/read-page.ts";
+import { openPdf } from "./pdf/pdfjs.ts";
+import { ResultList } from "./results/ResultList.tsx";
+import { type ReviewAction, type ReviewedField, type ReviewState, reviewFields, reviewReducer } from "./results/review.ts";
+import { useDocumentResults } from "./results/useDocumentResults.ts";
+import { groupLines } from "./text/lines.ts";
+import type { Rect } from "./text/types.ts";
 import { PageCanvas } from "./viewer/PageCanvas.tsx";
+import { RangeSelector, type ScreenRect } from "./viewer/RangeSelector.tsx";
 import { OcrNotice, ReadMethodStatus } from "./viewer/ReadMethodStatus.tsx";
 import { useElementWidth } from "./viewer/useElementWidth.ts";
 import { useFileDrop } from "./viewer/useFileDrop.ts";
@@ -26,6 +30,14 @@ interface OpenedPdf {
   fileName: string;
 }
 
+/** 書類のまとまりの中の1項目 */
+interface FieldRef {
+  groupId: string;
+  key: string;
+}
+
+const titleOf = (documentId: string) => DOCUMENT_TYPES.find((t) => t.id === documentId)?.title ?? documentId;
+
 export function App() {
   const [opened, setOpened] = useState<OpenedPdf | null>(null);
   const [loading, setLoading] = useState(false);
@@ -33,13 +45,17 @@ export function App() {
   const [pageNumber, setPageNumber] = useState(1);
   const [page, setPage] = useState<PDFPageProxy | null>(null);
   const [zoom, setZoom] = useState<Zoom>({ mode: "fit-width" });
-  // ページごとの読み取り結果と、利用者が手動で選んだ読み取り方法(ページ番号 → 方法)
-  const [reading, setReading] = useState<PageReading | null>(null);
+  // 利用者が手動で選んだ読み取り方法と書類タイプ(ページ番号 → 値)。複数の書類を結合したPDFのため、ページごとに持つ
   const [methodOverrides, setMethodOverrides] = useState<Record<number, ReadMethod>>({});
-  // 利用者が手動で選んだ書類タイプ(ページ番号 → 書類ID)。複数の書類を結合したPDFのため、ページごとに持つ
   const [typeOverrides, setTypeOverrides] = useState<Record<number, string>>({});
-  // 選択中のハイライト(項目のキー)
-  const [selectedHighlight, setSelectedHighlight] = useState<string | null>(null);
+  // 書類のまとまりごとの、確認・修正の状態
+  const [reviews, setReviews] = useState<Record<string, ReviewState>>({});
+  // 選択中の項目と、PDF上で範囲を選んでいる項目
+  const [selected, setSelected] = useState<FieldRef | null>(null);
+  const [rangeTarget, setRangeTarget] = useState<FieldRef | null>(null);
+  const [rangeError, setRangeError] = useState<string | null>(null);
+  // 一覧から項目を選んだときだけ、PDF上のハイライトまでスクロールする
+  const scrollToHighlight = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pageAreaRef, areaWidth] = useElementWidth<HTMLDivElement>();
   // 後から始めた読み込みだけを反映するための番号
@@ -61,9 +77,11 @@ export function App() {
         return { doc, fileName: file.name };
       });
       setPage(null);
-      setReading(null);
       setMethodOverrides({});
       setTypeOverrides({});
+      setReviews({});
+      setSelected(null);
+      setRangeTarget(null);
       setPageNumber(1);
       setZoom({ mode: "fit-width" });
     } catch (e) {
@@ -102,24 +120,19 @@ export function App() {
     };
   }, [opened, pageNumber]);
 
-  // 表示中のページの種類を判別し、文字と座標を取り出す
-  useEffect(() => {
-    if (!page) return;
-    let cancelled = false;
-    setReading(null);
-    readPdfPage(page).then(
-      (r) => {
-        if (!cancelled) setReading(r);
-      },
-      (e: unknown) => {
-        console.error(e);
-        if (!cancelled) setError("ページの文字を読み取れませんでした。");
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [page]);
+  const reportError = useCallback((message: string) => setError(message), []);
+  const results = useDocumentResults(opened?.doc ?? null, methodOverrides, typeOverrides, reportError);
+  const current = results.pages[pageNumber - 1] ?? null;
+
+  // 書類ごとに、抽出結果へ確認・修正を重ねる
+  const reviewed = useMemo(
+    () =>
+      results.documents.map((d) => ({
+        document: d,
+        items: d.extraction ? reviewFields(d.extraction.fields, reviews[d.id] ?? {}) : null,
+      })),
+    [results.documents, reviews],
+  );
 
   const handleRenderError = useCallback((e: unknown) => {
     console.error(e);
@@ -131,34 +144,21 @@ export function App() {
   const scale = resolveScale(zoom, pageWidth, areaWidth);
   const numPages = opened?.doc.numPages ?? 0;
   const openDialog = () => fileInputRef.current?.click();
-  const override = reading ? methodOverrides[reading.pageNumber] : undefined;
-  const method = override ?? reading?.classification.method;
-  const overridden = override !== undefined && override !== reading?.classification.method;
+  const methodOverridden =
+    current !== null &&
+    methodOverrides[pageNumber] !== undefined &&
+    methodOverrides[pageNumber] !== current.reading.classification.method;
 
-  // 書類タイプの判定は、pdf.js の文字を使うページだけで行う(OCR のページは OCR に対応したら判定する)
-  const typeGuess = useMemo(
-    () => (reading ? guessDocumentType(method === "pdf" ? reading.pdfSegments : []) : null),
-    [reading, method],
-  );
+  const highlights = useMemo(() => {
+    if (!page || page.pageNumber !== pageNumber) return [];
+    return reviewed.flatMap(({ document, items }) =>
+      items ? highlightsFromReviewed(document.id, document.documentId, items, pageNumber) : [],
+    );
+  }, [reviewed, page, pageNumber]);
 
-  // 表示中のページの書類タイプ(手動で選んだもの、なければ自動判定)の書類定義で、値を抽出する。
-  // 書類定義がまだない書類タイプでは抽出しない。複数ページにまたがる書類の扱いは、抽出結果の一覧を作るときに決める
-  const documentType = reading ? (typeOverrides[reading.pageNumber] ?? typeGuess?.documentId ?? null) : null;
-  const extraction = useMemo(() => {
-    const rules = DOCUMENT_DEFINITIONS.find((d) => d.id === documentType);
-    if (!reading || method !== "pdf" || !rules) return null;
-    return extractDocument(rules, [{ pageNumber: reading.pageNumber, view: reading.view, segments: reading.pdfSegments }]);
-  }, [reading, method, documentType]);
-  const highlights = useMemo(
-    () =>
-      extraction && reading && page?.pageNumber === reading.pageNumber
-        ? highlightsFromExtraction(extraction, reading.pageNumber)
-        : [],
-    [extraction, reading, page],
-  );
+  const viewport = useMemo(() => page?.getViewport({ scale }) ?? null, [page, scale]);
   const toScreen = useMemo<ToScreen | null>(() => {
-    if (!page) return null;
-    const viewport = page.getViewport({ scale });
+    if (!viewport) return null;
     return (rect) => {
       // 長方形の4つの角を画面の座標に変換し、それを囲む長方形にする(ページが回転していても正しく囲める)
       const corners = [
@@ -173,13 +173,99 @@ export function App() {
       const top = Math.min(...ys);
       return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
     };
-  }, [page, scale]);
+  }, [viewport]);
+
+  // 一覧から選んだ項目のハイライトを、画面の中に表示する
+  const selectedId = selected ? `${selected.groupId}:${selected.key}` : null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ページを切り替えた後、ハイライトが描かれてからスクロールするため highlights も見る
+  useEffect(() => {
+    if (!selectedId || !scrollToHighlight.current) return;
+    const element = document.querySelector(`[data-highlight-id="${CSS.escape(selectedId)}"]`);
+    if (element) {
+      element.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+      scrollToHighlight.current = false;
+    }
+  }, [selectedId, highlights]);
+
+  function selectFromList(groupId: string, item: ReviewedField) {
+    setSelected({ groupId, key: item.field.key });
+    if (item.page !== undefined) {
+      scrollToHighlight.current = true;
+      setPageNumber(item.page);
+    }
+  }
+
+  function selectFromHighlight(id: string | null) {
+    if (!id) {
+      setSelected(null);
+      return;
+    }
+    const separator = id.lastIndexOf(":");
+    setSelected({ groupId: id.slice(0, separator), key: id.slice(separator + 1) });
+  }
+
+  function review(groupId: string, action: ReviewAction) {
+    setReviews((all) => ({ ...all, [groupId]: reviewReducer(all[groupId] ?? {}, action) }));
+  }
+
+  /** PDF上で選んだ範囲の文字を、選んでいる項目の値にする */
+  function pickRange(screen: ScreenRect) {
+    if (!rangeTarget || !viewport || !current) return;
+    const target = reviewed
+      .find((r) => r.document.id === rangeTarget.groupId)
+      ?.items?.find((i) => i.field.key === rangeTarget.key);
+    if (!target) return;
+    if (current.method !== "pdf") {
+      setRangeError("このページには使える文字データがないため、範囲から値を取れません。「修正する」から入力してください。");
+      return;
+    }
+    // 画面の長方形の4つの角を、PDF座標に変換する
+    const corners = [
+      [screen.left, screen.top],
+      [screen.left + screen.width, screen.top],
+      [screen.left, screen.top + screen.height],
+      [screen.left + screen.width, screen.top + screen.height],
+    ].map(([x = 0, y = 0]) => viewport.convertToPdfPoint(x, y) as [number, number]);
+    const area: Rect = {
+      x0: Math.min(...corners.map((c) => c[0])),
+      y0: Math.min(...corners.map((c) => c[1])),
+      x1: Math.max(...corners.map((c) => c[0])),
+      y1: Math.max(...corners.map((c) => c[1])),
+    };
+    const inside = current.reading.pdfSegments.filter((s) => {
+      const cx = (s.bbox.x0 + s.bbox.x1) / 2;
+      const cy = (s.bbox.y0 + s.bbox.y1) / 2;
+      return cx >= area.x0 && cx <= area.x1 && cy >= area.y0 && cy <= area.y1;
+    });
+    const ordered = groupLines(inside).flatMap((line) => line.segments);
+    const raw = ordered.map((s) => s.text).join(" ");
+    const converted = raw.trim() ? convertValue(target.field.type, raw) : null;
+    if (!converted) {
+      setRangeError(
+        raw.trim()
+          ? `選んだ範囲の文字「${raw}」を、「${target.field.label}」の値として読めませんでした。`
+          : "選んだ範囲に文字がありませんでした。",
+      );
+      return;
+    }
+    review(rangeTarget.groupId, {
+      type: "edit",
+      key: rangeTarget.key,
+      edit: { value: converted.value, rawText: raw, page: pageNumber, bbox: ordered.map((s) => s.bbox) },
+    });
+    setSelected(rangeTarget);
+    setRangeTarget(null);
+    setRangeError(null);
+  }
+
+  function startPickRange(target: FieldRef) {
+    setRangeTarget(target);
+    setRangeError(null);
+  }
 
   function changeDocumentType(documentId: string | null) {
-    if (!reading) return;
-    const pageNumber = reading.pageNumber;
-    setTypeOverrides((current) => {
-      const next = { ...current };
+    setTypeOverrides((all) => {
+      const next = { ...all };
       if (documentId === null) delete next[pageNumber];
       else next[pageNumber] = documentId;
       return next;
@@ -187,10 +273,15 @@ export function App() {
   }
 
   function toggleMethod() {
-    if (!reading || !method) return;
-    const next: ReadMethod = method === "pdf" ? "ocr" : "pdf";
-    setMethodOverrides((current) => ({ ...current, [reading.pageNumber]: next }));
+    if (!current) return;
+    const next: ReadMethod = current.method === "pdf" ? "ocr" : "pdf";
+    setMethodOverrides((all) => ({ ...all, [pageNumber]: next }));
   }
+
+  const rangeTargetLabel = rangeTarget
+    ? reviewed.find((r) => r.document.id === rangeTarget.groupId)?.items?.find((i) => i.field.key === rangeTarget.key)?.field
+        .label
+    : undefined;
 
   return (
     <div className="app">
@@ -214,7 +305,7 @@ export function App() {
             numPages={numPages}
             onPageStep={(delta) =>
               // ボタンを続けて押しても1回ずつ進むように、直前の値から計算する
-              setPageNumber((current) => Math.min(numPages, Math.max(1, current + delta)))
+              setPageNumber((n) => Math.min(numPages, Math.max(1, n + delta)))
             }
             zoom={zoom}
             scale={scale}
@@ -223,8 +314,13 @@ export function App() {
             onFitWidth={() => setZoom({ mode: "fit-width" })}
           />
         )}
-        {reading && method && (
-          <ReadMethodStatus kind={reading.classification.kind} method={method} overridden={overridden} onToggle={toggleMethod} />
+        {current && (
+          <ReadMethodStatus
+            kind={current.reading.classification.kind}
+            method={current.method}
+            overridden={methodOverridden}
+            onToggle={toggleMethod}
+          />
         )}
         <div className="spacer" />
         <div className="safe-badge">
@@ -255,7 +351,20 @@ export function App() {
               読み込み中…
             </p>
           )}
-          {reading && method === "ocr" && <OcrNotice kind={reading.classification.kind} overridden={overridden} />}
+          {current && current.method === "ocr" && (
+            <OcrNotice kind={current.reading.classification.kind} overridden={methodOverridden} />
+          )}
+          {rangeTarget && (
+            <div className="range-notice" role="status">
+              <span>
+                「{rangeTargetLabel}」の値の範囲を、PDFの上でドラッグして選んでください。
+                {rangeError && <strong className="range-notice__error">{rangeError}</strong>}
+              </span>
+              <button type="button" className="button button--small" onClick={() => setRangeTarget(null)}>
+                やめる
+              </button>
+            </div>
+          )}
           {opened ? (
             <div ref={pageAreaRef} className="page-area">
               {page && (
@@ -266,10 +375,11 @@ export function App() {
                       highlights={highlights}
                       toScreen={toScreen}
                       rotation={page.rotate}
-                      selectedId={selectedHighlight}
-                      onSelect={setSelectedHighlight}
+                      selectedId={selectedId}
+                      onSelect={selectFromHighlight}
                     />
                   )}
+                  {rangeTarget && <RangeSelector onSelect={pickRange} />}
                 </div>
               )}
             </div>
@@ -277,14 +387,44 @@ export function App() {
             !loading && <EmptyState onChooseFile={openDialog} />
           )}
         </main>
-        <ResultPanel>
-          {reading && typeGuess && (
+        <ResultPanel opened={opened !== null}>
+          {current && (
             <DocumentTypeCard
-              pageNumber={reading.pageNumber}
-              guess={typeGuess}
-              override={typeOverrides[reading.pageNumber]}
+              pageNumber={pageNumber}
+              guess={current.guess}
+              override={typeOverrides[pageNumber]}
               onChange={changeDocumentType}
             />
+          )}
+          {opened && !results.complete && (
+            <p className="loading" role="status">
+              ページを読み取っています…
+            </p>
+          )}
+          {reviewed.map(({ document, items }) =>
+            items ? (
+              <ResultList
+                key={document.id}
+                title={titleOf(document.documentId)}
+                documentId={document.documentId}
+                pages={document.pages}
+                fileName={opened?.fileName ?? ""}
+                items={items}
+                selectedKey={selected?.groupId === document.id ? selected.key : null}
+                onSelect={(item) => selectFromList(document.id, item)}
+                onReview={(action) => review(document.id, action)}
+                onPickRange={(key) => startPickRange({ groupId: document.id, key })}
+              />
+            ) : (
+              <p key={document.id} className="result-panel__note">
+                「{titleOf(document.documentId)}」の抽出ルールはまだありません。
+              </p>
+            ),
+          )}
+          {results.complete && reviewed.length === 0 && (
+            <p className="result-panel__note">
+              書類の種類が分からないため、項目を抽出していません。「書類の種類を変える」から選んでください。
+            </p>
           )}
           <HighlightLegend />
         </ResultPanel>

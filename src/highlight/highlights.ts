@@ -1,4 +1,5 @@
 import type { ExtractionResult, FieldResult } from "../extract/engine.ts";
+import type { ReviewedField } from "../results/review.ts";
 import { normalizeForDisplay } from "../text/normalize.ts";
 import type { Rect } from "../text/types.ts";
 import { categoryOf, type HighlightCategory } from "./categories.ts";
@@ -42,6 +43,34 @@ export function highlightsFromExtraction(result: ExtractionResult, page: number)
         : `${f.label}: ${displayValue(f)}`,
       lowConfidence: (f.confidence ?? 1) < LOW_CONFIDENCE,
     }));
+}
+
+/**
+ * 確認・修正を反映した抽出結果から、指定したページのハイライトを作る。
+ * ハイライトの ID は「書類のまとまりの ID:項目のキー」にする(1つのPDFに複数の書類があっても区別できるように)
+ */
+export function highlightsFromReviewed(
+  groupId: string,
+  documentId: string,
+  items: readonly ReviewedField[],
+  page: number,
+): Highlight[] {
+  const fields = items
+    .filter((i) => i.status !== "missing" && i.value !== undefined)
+    .map(
+      (i): FieldResult => ({
+        ...i.field,
+        found: true,
+        value: i.value,
+        rawText: i.rawText,
+        bbox: i.bbox,
+        page: i.page,
+        // 確認済み・手で直した値は、要確認の表示をしない
+        confidence: i.status === "attention" ? i.field.confidence : 1,
+        derivedFrom: i.status === "edited" ? undefined : i.field.derivedFrom,
+      }),
+    );
+  return highlightsFromExtraction({ documentId, fields }, page).map((h) => ({ ...h, id: `${groupId}:${h.id}` }));
 }
 
 /**
