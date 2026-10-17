@@ -1,0 +1,61 @@
+/*
+ * UIトークン。承認済みのUIデザイン(読み込み前・抽出結果・差分結果・UIトークン)の値をそのまま使う。
+ * フォントは Google Fonts ではなく、npm パッケージに含まれるファイルを同じオリジンから配信する。
+ */
+@import "@fontsource/ibm-plex-sans-jp/400.css";
+@import "@fontsource/ibm-plex-sans-jp/500.css";
+@import "@fontsource/ibm-plex-sans-jp/700.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+:root {
+  /* 色 */
+  --color-bg: #f4f4f1;
+  --color-surface: #ffffff;
+  --color-surface-muted: #fafaf8;
+  --color-line: #deddd7;
+  --color-line-strong: #b9b8b0;
+  --color-accent: #1e4fd8;
+  --color-accent-hover: #163ca8;
+  --color-ink: #1b1d21;
+  --color-ink-2: #4a4e57;
+  --color-ink-3: #6b6f78;
+  --color-disabled: #8a8d94;
+  --color-safe: #11603a;
+  --color-safe-bg: #e6f4ec;
+  --color-warning: #6b3a00;
+  --color-warning-bg: #fff8ec;
+  --color-warning-line: #f1dfc2;
+  --color-error: #a8380b;
+  --color-error-bg: #fde6da;
+
+  /* フォント */
+  --font-sans: "IBM Plex Sans JP", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-size-heading: 22px;
+  --font-size-subheading: 16px;
+  --font-size-body: 14px;
+  --font-size-small: 13px;
+  --font-size-caption: 12px;
+
+  /* 余白 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* 角丸 */
+  --radius-chip: 4px;
+  --radius-button: 6px;
+  --radius-card: 8px;
+  --radius-panel: 12px;
+  --radius-badge: 999px;
+
+  /* 操作対象の高さ */
+  --control-height: 40px;
+  --control-height-large: 44px;
+}
