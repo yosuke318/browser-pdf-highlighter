@@ -61,6 +61,25 @@ describe("抽出結果からハイライトを作る", () => {
     });
   });
 
+  it("ほかの項目から計算した値は、計算した値ともとの項目を説明に出す", () => {
+    const derived: ExtractionResult = {
+      documentId: "resident-tax-notice",
+      fields: [
+        field("fiscalYear", { label: "年度", type: "year", value: 2026, rawText: "令和8年", page: 1, bbox: [box] }),
+        field("incomeYear", {
+          label: "対象年",
+          type: "year",
+          value: 2025,
+          rawText: "令和8年",
+          page: 1,
+          bbox: [box],
+          derivedFrom: "fiscalYear",
+        }),
+      ],
+    };
+    expect(highlightsFromExtraction(derived, 1)[1]?.label).toBe("対象年: 2025(年度から計算)");
+  });
+
   it("確からしさが低い値は、要確認にする。文字列以外の値は、取り出したままの文字列を説明に使う", () => {
     expect(highlightsFromExtraction(result, 1)[1]).toMatchObject({ lowConfidence: true, label: "支払金額: 5,800,000" });
   });

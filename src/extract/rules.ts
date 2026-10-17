@@ -33,6 +33,8 @@ interface RuleBase {
   accept?: RegExp;
   /** 値の候補(正規化した文字列)がこの正規表現に合うときは採用しない */
   reject?: RegExp;
+  /** 値から取り除く部分(「山田太郎様」の「様」など)。取り出したままの文字列(rawText)には残す */
+  remove?: RegExp;
 }
 
 export type Direction = "right" | "below";
@@ -60,9 +62,11 @@ export interface LabelRule extends RuleBase {
   /**
    * 候補が複数あるときの選び方。既定("nearest")はラベルに近いものを選ぶ。
    * "largest" は文字が大きいものを選ぶ(源泉徴収票の支払金額の欄には、左上に小さな文字で未払いの金額が
-   * 書かれていることがあり、近さだけでは本来の金額と区別できないため)
+   * 書かれていることがあり、近さだけでは本来の金額と区別できないため)。
+   * "farthest" はラベルから最も遠いものを選ぶ(住民税決定通知書の「特別徴収税額(年税額)」の行のように、
+   * 市民税・県民税・森林環境税・合計と並び、合計が行の右端にある表のため)
    */
-  prefer?: "nearest" | "largest";
+  prefer?: "nearest" | "largest" | "farthest";
 }
 
 /** 正規表現で値を取る。1行(同じ高さのセルをつなげた、正規化した文字列)ごとに探す */

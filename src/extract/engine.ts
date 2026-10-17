@@ -38,6 +38,8 @@ export interface FieldResult {
   source?: "pdf" | "ocr";
   /** 確認が必要な点 */
   warnings: string[];
+  /** ほかの項目から計算した値のとき、もとの項目のキー(derive ルール) */
+  derivedFrom?: string;
 }
 
 export interface ExtractionResult {
@@ -152,14 +154,15 @@ function accepted(rule: { accept?: RegExp; reject?: RegExp }, raw: string): bool
 
 function toCandidate(
   type: FieldType,
-  rule: { accept?: RegExp; reject?: RegExp },
+  rule: { accept?: RegExp; reject?: RegExp; remove?: RegExp },
   page: number,
   parts: { raw: string; boxes: Rect[]; segment: TextSegment }[],
   distance: number,
 ): Candidate | null {
   const raw = parts.map((p) => p.raw).join(" ");
   if (!accepted(rule, raw)) return null;
-  const converted = convertValue(type, raw);
+  // 敬称(「様」)など、値に含めない部分を除いてから変換する。取り出したままの文字列(raw)には残す
+  const converted = convertValue(type, rule.remove ? raw.replace(rule.remove, "") : raw);
   if (!converted) return null;
   return {
     page,
@@ -207,15 +210,18 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
     const label = labels.find((l) => n.text === l || (inline && n.text.startsWith(l)));
     if (label === undefined) continue;
 
-    // ラベルと値が1つのセルになっている(「(受給者番号)00123」など)
+    // ラベルと値が1つのセルになっている(「(受給者番号)00123」など)。
+    // 続きが値にならなければ(「課税標準額(総所得)」のようにラベルに補足が付いているだけなら)、隣のセルを探す
     if (n.text.length > label.length) {
       const startSource = n.sourceIndex[label.length];
       if (startSource !== undefined) {
         const part = sliceSegment(anchor, startSource, [...anchor.text].length);
         const c = toCandidate(type, rule, page.pageNumber, [{ ...part, segment: anchor }], 0);
-        if (c) candidates.push(c);
+        if (c) {
+          candidates.push(c);
+          continue;
+        }
       }
-      continue;
     }
 
     const h = height(anchor.bbox);
@@ -321,11 +327,12 @@ function firstCandidate(rule: Exclude<Rule, { kind: "derive" }>, type: FieldType
         : rule.kind === "pattern"
           ? patternCandidates(rule, type, page)
           : regionCandidates(rule, type, page);
-    const largest = rule.kind === "label" && rule.prefer === "largest";
-    const best = candidates.sort((p, q) =>
+    const prefer = rule.kind === "label" ? (rule.prefer ?? "nearest") : "nearest";
+    const best = candidates.sort((p, q) => {
       // 文字の大きさは、わずかな違い(0.5pt 未満)を同じとみなす
-      largest && Math.abs(p.size - q.size) >= 0.5 ? q.size - p.size : p.distance - q.distance,
-    )[0];
+      if (prefer === "largest" && Math.abs(p.size - q.size) >= 0.5) return q.size - p.size;
+      return prefer === "farthest" ? q.distance - p.distance : p.distance - q.distance;
+    })[0];
     if (best) return best;
   }
   return null;
@@ -387,6 +394,7 @@ export function extractDocument(rules: DocumentRules, pages: readonly Extraction
       ruleId: ruleId(rule, index),
       source: from.source,
       warnings: [`「${from.label}」から計算した値です`],
+      derivedFrom: from.key,
     });
   }
 
