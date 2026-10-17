@@ -25,8 +25,11 @@ export interface FontStyleLike {
 
 /** まとめるときのしきい値(文字の大きさに対する比率) */
 export const LAYOUT_SETTINGS = {
-  /** ベースラインの高さの差がこれ以内なら、同じ行とみなす */
-  sameLineTolerance: 0.3,
+  /**
+   * 文字の縦の中心の差がこれ以内(小さい方の文字の大きさに対する比率)なら、同じ行とみなす。
+   * 行の中心は、その行の片の平均にする(手書き風の文字は1文字ずつ高さが少しずつずれるため)
+   */
+  sameLineTolerance: 0.5,
   /**
    * 前の片との間がこれより広ければ、別のセルとみなす。
    * ダミーの源泉徴収票では、表の見出しどうしの間が 0.96〜0.99、字間をあけたタイトル(「令 和 7 年 分」)の
@@ -35,11 +38,17 @@ export const LAYOUT_SETTINGS = {
   cellGap: 0.9,
   /** 文字の大きさが違う片は、間がこれより広ければ別のセルとみなす(ラベルと値が近接している表への対策) */
   cellGapOnFontChange: 0.3,
-  /** 文字の大きさが違うとみなす比率 */
-  fontSizeChange: 1.15,
+  /**
+   * 文字の大きさが違うとみなす比率。手書き風の文字は1文字ずつ大きさが最大 1.16 倍ほどばらつくので、
+   * それより大きくする(ダミーの源泉徴収票のラベル 8pt と値 10pt の差は 1.25 倍)
+   */
+  fontSizeChange: 1.2,
   /** 前の片との間がこれより広ければ、間に空白を1文字入れる */
   spaceGap: 0.25,
 } as const;
+
+/** 横書きとみなす文字の傾きの上限(ラジアン。15度) */
+const MAX_HORIZONTAL_TILT = (15 * Math.PI) / 180;
 
 interface Run {
   chars: string[];
@@ -87,7 +96,9 @@ function toRun(item: TextItemLike, styles: Record<string, FontStyleLike | undefi
     };
   });
 
-  const horizontal = Math.abs(b) < 1e-6 && Math.abs(c) < 1e-6 && a > 0;
+  // 手書き風の文字や、傾いて読み取られた文字は、1文字ずつわずかに回転していることがある。
+  // 少しの傾きなら横書きとして扱い、隣の文字とつなげる
+  const horizontal = a > 0 && Math.abs(Math.atan2(b, a)) < MAX_HORIZONTAL_TILT;
   return { chars, boxes, horizontal, baseline: f, x0: e, x1: e + item.width, size };
 }
 
@@ -101,22 +112,29 @@ function toSegment(chars: string[], boxes: Rect[]): TextSegment {
   };
 }
 
+/** 片の縦の中心(1文字ごとの長方形の中心の平均) */
+function centerY(run: Run): number {
+  return run.boxes.reduce((sum, b) => sum + (b.y0 + b.y1) / 2, 0) / Math.max(1, run.boxes.length);
+}
+
 /** 横書きの片を、行ごとに分ける(上の行から順) */
 function groupLines(runs: Run[]): Run[][] {
-  const sorted = [...runs].sort((p, q) => q.baseline - p.baseline || p.x0 - q.x0);
-  const lines: Run[][] = [];
+  const sorted = [...runs].sort((p, q) => centerY(q) - centerY(p) || p.x0 - q.x0);
+  const lines: { runs: Run[]; center: number; size: number }[] = [];
   for (const run of sorted) {
-    const line = lines.find((l) => {
-      const first = l[0];
-      if (!first) return false;
-      const tolerance = LAYOUT_SETTINGS.sameLineTolerance * Math.min(first.size, run.size);
-      return Math.abs(first.baseline - run.baseline) <= tolerance;
-    });
-    if (line) line.push(run);
-    else lines.push([run]);
+    const center = centerY(run);
+    const line = lines.find((l) => Math.abs(l.center - center) <= LAYOUT_SETTINGS.sameLineTolerance * Math.min(l.size, run.size));
+    if (line) {
+      // 行の中心と大きさは、その行の片の平均にする
+      const n = line.runs.length;
+      line.center = (line.center * n + center) / (n + 1);
+      line.size = (line.size * n + run.size) / (n + 1);
+      line.runs.push(run);
+    } else {
+      lines.push({ runs: [run], center, size: run.size });
+    }
   }
-  for (const line of lines) line.sort((p, q) => p.x0 - q.x0);
-  return lines;
+  return lines.map((l) => l.runs.sort((p, q) => p.x0 - q.x0));
 }
 
 /** 1行の片を、間隔と文字の大きさの変化を見てセルに分ける */

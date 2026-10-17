@@ -13,5 +13,9 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // 変換したファイルをディスクに保存して再利用する仕組みは、ファイルの中身が変わらないと作り直されない。
+    // 書類定義を読み込む import.meta.glob は、src/extract/definitions/ にファイルを足しても
+    // load-definitions.ts の中身は変わらないので、足した書類定義が読み込まれなくなる。そのため使わない
+    fsModuleCache: false,
   },
 });

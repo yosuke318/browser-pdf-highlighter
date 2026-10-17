@@ -110,3 +110,22 @@ describe("サンプルの源泉徴収票", async () => {
     expect(part.y1).toBeCloseTo(whole.y1);
   });
 });
+
+describe("少し傾いた文字", () => {
+  /** 角度 deg だけ回転した1文字の片 */
+  function tilted(str: string, x: number, y: number, deg: number, size = 11): TextItemLike {
+    const r = (deg * Math.PI) / 180;
+    const [cos, sin] = [Math.cos(r) * size, Math.sin(r) * size];
+    return { str, transform: [cos, sin, -sin, cos, x, y], width: size, height: size, fontName: "f" };
+  }
+
+  it("1文字ずつ少し傾いた手書き風の文字を、横書きとしてつなげる", () => {
+    const items = [tilted("サ", 107, 716, -3), tilted("ン", 118, 717, 4), tilted("プ", 129, 718, -1), tilted("ル", 140, 716, 5)];
+    expect(texts(layoutText(items, STYLES))).toEqual(["サンプル"]);
+  });
+
+  it("大きく回転した文字(15度以上)は、横書きとしてつなげない", () => {
+    const items = [tilted("A", 107, 716, 30), tilted("B", 118, 716, 30)];
+    expect(texts(layoutText(items, STYLES))).toEqual(["A", "B"]);
+  });
+});

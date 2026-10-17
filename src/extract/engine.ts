@@ -63,6 +63,8 @@ const DEFAULT_MAX_DISTANCE = { right: 25, below: 5 } as const;
 const DEFAULT_MAX_CELLS = 6;
 /** 値が複数のセルに分かれているとき、セルとセルの間の最大の距離(文字の高さの何倍か) */
 const MAX_CELL_GAP = 3;
+/** 金額の単位だけのセル */
+const UNIT_ONLY = /^(万円|千円|円|万|千)$/;
 /** 2番目以降のルールで取れた値の確からしさを、1つ下がるごとにこれだけ下げる */
 const RULE_PENALTY = 0.1;
 
@@ -241,8 +243,13 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
       for (const { s, gap } of starts) {
         const row = rowFrom(s, others, maxCells);
         for (let k = 1; k <= row.length; k++) {
+          // 金額の直後に単位だけのセル(「420」「万円」)があれば、単位も含めて変換する
+          const next = row[k];
+          const withUnit = type === "money" && next && UNIT_ONLY.test(norm(next).text) ? k + 1 : k;
           // 向きの優先順位を距離に加え、先に指定した向きの値を優先する
-          const c = toCandidate(type, rule, page.pageNumber, row.slice(0, k).map(whole), gap + dirIndex * 1e6);
+          const c =
+            toCandidate(type, rule, page.pageNumber, row.slice(0, withUnit).map(whole), gap + dirIndex * 1e6) ??
+            (withUnit !== k ? toCandidate(type, rule, page.pageNumber, row.slice(0, k).map(whole), gap + dirIndex * 1e6) : null);
           if (c) {
             candidates.push(c);
             break;

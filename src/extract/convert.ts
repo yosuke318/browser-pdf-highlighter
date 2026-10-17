@@ -11,6 +11,7 @@ export interface Converted {
 }
 
 const ERA = "令和|平成|昭和|大正|明治|[令平昭大明RHSTM]";
+const DATE_PREFIX = new RegExp(`^(?:(?:${ERA})(?:元|\\d{1,2})|\\d{4})[年./-]\\d{1,2}[月./-]\\d{1,2}日?`, "i");
 const YEAR_MONTH = new RegExp(`^((?:${ERA})(?:元|\\d{1,2})|\\d{4})[年./-](\\d{1,2})月?$`, "i");
 
 export function convertValue(type: FieldType, raw: string): Converted | null {
@@ -25,7 +26,8 @@ export function convertValue(type: FieldType, raw: string): Converted | null {
       return money ? { value: money.yen, warnings: [] } : null;
     }
     case "date": {
-      const date = parseDate(raw);
+      // 「平成8年9月3日(30歳)」のように後ろに年齢などが続くときは、先頭の日付の部分だけを使う
+      const date = parseDate(raw) ?? parseDate(DATE_PREFIX.exec(normalized)?.[0] ?? "");
       return date ? { value: date.iso, warnings: date.warnings } : null;
     }
     case "year": {
