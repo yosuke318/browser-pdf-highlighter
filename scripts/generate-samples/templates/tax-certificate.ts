@@ -1,6 +1,6 @@
 import { CLEAN_SCAN, page, type SampleDocument } from "../document.ts";
 import { warekiText, yen } from "../format.ts";
-import { yamada, yamadaIncome2025 as inc } from "../people.ts";
+import { yamadaIncome2025 as inc, yamada } from "../people.ts";
 
 // 市民税・県民税 課税(所得)証明書(令和8年度 = 令和7年中の所得)。架空の「見本市」発行。
 // 実物は偽造防止の地紋入り用紙で、コピーやスキャンをすると背景に「複写」の文字が浮き出る。

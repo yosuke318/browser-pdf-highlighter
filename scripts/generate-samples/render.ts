@@ -61,12 +61,7 @@ export async function renderTextPdf(browser: Browser, html: string): Promise<Uin
   }
 }
 
-export async function renderScan(
-  browser: Browser,
-  html: string,
-  profile: ScanProfile,
-  seed: number,
-): Promise<ScannedPage> {
+export async function renderScan(browser: Browser, html: string, profile: ScanProfile, seed: number): Promise<ScannedPage> {
   const context = await browser.newContext({
     viewport: { width: Math.round(A4_CSS_PX.width), height: Math.round(A4_CSS_PX.height) },
     deviceScaleFactor: profile.dpi / 96,
@@ -133,8 +128,7 @@ async function degradeImage(args: {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
   // ボックス=ミュラー法で正規分布の乱数を作る
-  const gaussian = (): number =>
-    Math.sqrt(-2 * Math.log(random() || 1e-9)) * Math.cos(2 * Math.PI * random());
+  const gaussian = (): number => Math.sqrt(-2 * Math.log(random() || 1e-9)) * Math.cos(2 * Math.PI * random());
 
   const image = new Image();
   image.src = `data:image/png;base64,${pngBase64}`;

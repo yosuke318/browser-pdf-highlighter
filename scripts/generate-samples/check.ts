@@ -22,7 +22,12 @@ function isManifest(value: unknown): value is ManifestEntry[] {
     Array.isArray(value) &&
     value.every(
       (e: unknown) =>
-        typeof e === "object" && e !== null && "file" in e && typeof e.file === "string" && "pages" in e && Array.isArray(e.pages),
+        typeof e === "object" &&
+        e !== null &&
+        "file" in e &&
+        typeof e.file === "string" &&
+        "pages" in e &&
+        Array.isArray(e.pages),
     )
   );
 }
