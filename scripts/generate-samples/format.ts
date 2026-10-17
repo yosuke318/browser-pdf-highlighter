@@ -48,11 +48,7 @@ export function age(birth: IsoDate, at: IsoDate): number {
 }
 
 export function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 /** 確定申告書のように、金額を1桁ずつマス目に入れて右詰めで表示する */
@@ -60,7 +56,5 @@ export function digitCells(value: number | null, cells: number): string {
   const digits = value === null ? "" : String(value);
   if (digits.length > cells) throw new Error(`${value} は ${cells} 桁に収まりません`);
   const padded = digits.padStart(cells, " ");
-  return `<span class="digits">${[...padded]
-    .map((c) => `<span class="digit">${c === " " ? "" : c}</span>`)
-    .join("")}</span>`;
+  return `<span class="digits">${[...padded].map((c) => `<span class="digit">${c === " " ? "" : c}</span>`).join("")}</span>`;
 }

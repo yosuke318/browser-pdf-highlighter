@@ -1,6 +1,6 @@
 import { createHandwriting, FAX_SCAN, page, type SampleDocument } from "../document.ts";
 import { age, manYen, toWareki, yen } from "../format.ts";
-import { tanaka, tanakaGuarantor as g } from "../people.ts";
+import { tanakaGuarantor as g, tanaka } from "../people.ts";
 
 // 賃貸の入居申込書。架空の「見本不動産管理」の独自様式。
 // 手書きで記入され、仲介会社からFAXで届いたものをスキャンした想定(上端にFAXの送信記録が入る)。

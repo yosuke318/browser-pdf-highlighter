@@ -1,6 +1,6 @@
 import { CLEAN_SCAN, page, type SampleDocument } from "../document.ts";
 import { yen } from "../format.ts";
-import { yamada, yamadaIncome2025 as inc } from "../people.ts";
+import { yamadaIncome2025 as inc, yamada } from "../people.ts";
 
 // 給与所得等に係る市民税・県民税 特別徴収税額の決定通知書(納税義務者用)。令和8年度。
 // 勤務先経由で配られる封書型(A4)を想定。架空の「見本市」発行。

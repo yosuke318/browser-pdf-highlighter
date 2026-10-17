@@ -1,6 +1,6 @@
 import { CLEAN_SCAN, page, type SampleDocument } from "../document.ts";
 import { toWareki, yen } from "../format.ts";
-import { yamada, yamadaIncome2025 as inc } from "../people.ts";
+import { yamadaIncome2025 as inc, yamada } from "../people.ts";
 
 // 給与所得の源泉徴収票(令和7年分・受給者交付用)。
 // 国税庁の様式の欄構成をもとにした簡略版。A4用紙の上部に1枚置いてスキャンした想定。
