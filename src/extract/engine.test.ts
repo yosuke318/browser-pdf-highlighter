@@ -130,6 +130,28 @@ describe("ラベルの近くから値を取る", () => {
     expect(largest.field("paymentAmount")?.value).toBe(5_800_000);
   });
 
+  it("ラベルに補足が付いたセル(「課税標準額(総所得)」)でも、隣の値を取る", () => {
+    const { field } = run({ totalDeductions: [{ kind: "label", labels: ["所得控除の額の合計額"], direction: "right" }] }, [
+      page([cell("所得控除の額の合計額(参考)", 50, 700), cell("1,328,000", 300, 700)]),
+    ]);
+    expect(field("totalDeductions")?.value).toBe(1_328_000);
+  });
+
+  it("prefer: farthest なら、行の右端(合計の列)の値を選ぶ", () => {
+    const { field } = run(
+      { withholdingTax: [{ kind: "label", labels: ["源泉徴収税額"], direction: "right", prefer: "farthest" }] },
+      [page([cell("源泉徴収税額", 50, 700), cell("172,800", 150, 700), cell("113,800", 250, 700), cell("287,600", 350, 700)])],
+    );
+    expect(field("withholdingTax")?.value).toBe(287_600);
+  });
+
+  it("remove で値から敬称などを取り除き、取り出したままの文字列には残す", () => {
+    const { field } = run({ name: [{ kind: "label", labels: ["氏名"], direction: "right", remove: /(様|殿)$/ }] }, [
+      page([cell("氏名", 50, 700), cell("山田太郎様", 120, 700)]),
+    ]);
+    expect(field("name")).toMatchObject({ value: "山田太郎", rawText: "山田太郎様" });
+  });
+
   it("最大の距離より遠い値は取らない", () => {
     const { field } = run({ name: [{ kind: "label", labels: ["氏名"], direction: "right", maxDistance: 2 }] }, [
       page([cell("氏名", 50, 700), cell("山田太郎", 300, 700)]),
@@ -250,7 +272,13 @@ describe("ほかの項目から計算する", () => {
       [page([cell("令和8年度", 50, 700)])],
       "resident-tax-notice",
     );
-    expect(field("incomeYear")).toMatchObject({ found: true, value: 2025, page: 1, ruleId: "derive#1" });
+    expect(field("incomeYear")).toMatchObject({
+      found: true,
+      value: 2025,
+      page: 1,
+      ruleId: "derive#1",
+      derivedFrom: "fiscalYear",
+    });
     expect(field("incomeYear")?.bbox).toEqual(field("fiscalYear")?.bbox);
     expect(field("incomeYear")?.warnings).toHaveLength(1);
   });

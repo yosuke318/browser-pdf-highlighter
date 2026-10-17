@@ -28,6 +28,7 @@ export const LOW_CONFIDENCE = 0.8;
 
 /** 抽出結果のうち、指定したページにある値のハイライト */
 export function highlightsFromExtraction(result: ExtractionResult, page: number): Highlight[] {
+  const labels = new Map(result.fields.map((f) => [f.key, f.label]));
   return result.fields
     .filter((f) => f.found && f.page === page && f.bbox.length > 0)
     .map((f) => ({
@@ -35,8 +36,11 @@ export function highlightsFromExtraction(result: ExtractionResult, page: number)
       page,
       rects: f.bbox,
       kind: { type: "field", category: categoryOf(f.key) },
-      // PDFに書かれているとおりの文字列を、康熙部首などを通常の文字にして出す
-      label: `${f.label}: ${normalizeForDisplay(f.rawText ?? String(f.value))}`,
+      // PDFに書かれているとおりの文字列を、康熙部首などを通常の文字にして出す。
+      // ほかの項目から計算した値は、PDFに書かれていないので、計算した値ともとの項目を出す
+      label: f.derivedFrom
+        ? `${f.label}: ${String(f.value)}(${labels.get(f.derivedFrom) ?? f.derivedFrom}から計算)`
+        : `${f.label}: ${normalizeForDisplay(f.rawText ?? String(f.value))}`,
       lowConfidence: (f.confidence ?? 1) < LOW_CONFIDENCE,
     }));
 }
