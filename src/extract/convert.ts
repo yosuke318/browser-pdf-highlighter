@@ -1,5 +1,5 @@
 import type { FieldType } from "../schema/fields.ts";
-import { normalizeChar, normalizeText } from "../text/normalize.ts";
+import { normalizeForDisplay, normalizeText } from "../text/normalize.ts";
 import { parseDate, parseMoney, parseYear } from "../text/values.ts";
 
 // 値の候補の文字列を、項目の型に合わせて値にする。変換できなければ null(その候補は使わない)。
@@ -17,11 +17,9 @@ export function convertValue(type: FieldType, raw: string): Converted | null {
   const normalized = normalizeText(raw).text;
   if (normalized === "") return null;
   switch (type) {
-    case "text": {
-      // 康熙部首・全角英数字などは通常の文字にするが、空白は1つにして残す(氏名の「山田 太郎」など)
-      const value = [...raw.trim().replace(/\s+/gu, " ")].map((c) => (c === " " ? c : normalizeChar(c))).join("");
-      return { value, warnings: [] };
-    }
+    case "text":
+      // 康熙部首・全角英数字などは通常の文字にするが、空白は残す(氏名の「山田 太郎」など)
+      return { value: normalizeForDisplay(raw), warnings: [] };
     case "money": {
       const money = parseMoney(raw);
       return money ? { value: money.yen, warnings: [] } : null;

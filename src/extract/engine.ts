@@ -55,6 +55,8 @@ interface Candidate {
   segments: TextSegment[];
   /** ラベルからの距離など。小さいほど優先する */
   distance: number;
+  /** 文字の大きさ(セルの高さの最大) */
+  size: number;
 }
 
 const DEFAULT_MAX_DISTANCE = { right: 25, below: 5 } as const;
@@ -165,6 +167,7 @@ function toCandidate(
     boxes: parts.flatMap((p) => p.boxes),
     segments: parts.map((p) => p.segment),
     distance,
+    size: Math.max(...parts.map((p) => height(p.segment.bbox))),
   };
 }
 
@@ -311,7 +314,11 @@ function firstCandidate(rule: Exclude<Rule, { kind: "derive" }>, type: FieldType
         : rule.kind === "pattern"
           ? patternCandidates(rule, type, page)
           : regionCandidates(rule, type, page);
-    const best = candidates.sort((p, q) => p.distance - q.distance)[0];
+    const largest = rule.kind === "label" && rule.prefer === "largest";
+    const best = candidates.sort((p, q) =>
+      // 文字の大きさは、わずかな違い(0.5pt 未満)を同じとみなす
+      largest && Math.abs(p.size - q.size) >= 0.5 ? q.size - p.size : p.distance - q.distance,
+    )[0];
     if (best) return best;
   }
   return null;

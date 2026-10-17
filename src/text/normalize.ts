@@ -60,6 +60,14 @@ export function normalizeText(text: string): NormalizedText {
 const VOICING_MARKS = /^[゙゚ﾞﾟ]$/u;
 
 /**
+ * 画面に出すための正規化。康熙部首・全角英数字などは通常の文字にするが、空白は1つにまとめて残す
+ * (比較用の normalizeText と違い、「山田 太郎」の空白を消さない)
+ */
+export function normalizeForDisplay(text: string): string {
+  return [...text.trim().replace(/\s+/gu, " ")].map((c) => (c === " " ? c : normalizeChar(c))).join("");
+}
+
+/**
  * 正規化した文字列の範囲 [start, end)(コードポイント単位)を、元の文字列の範囲に戻す
  */
 export function toSourceRange(normalized: NormalizedText, start: number, end: number): [number, number] | null {

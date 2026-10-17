@@ -1,4 +1,5 @@
 import type { ExtractionResult } from "../extract/engine.ts";
+import { normalizeForDisplay } from "../text/normalize.ts";
 import type { Rect } from "../text/types.ts";
 import { categoryOf, type HighlightCategory } from "./categories.ts";
 
@@ -34,8 +35,8 @@ export function highlightsFromExtraction(result: ExtractionResult, page: number)
       page,
       rects: f.bbox,
       kind: { type: "field", category: categoryOf(f.key) },
-      // 文字列の項目は正規化した値(康熙部首などを通常の文字にしたもの)を、それ以外は取り出したままの文字列を出す
-      label: `${f.label}: ${f.type === "text" ? String(f.value) : (f.rawText ?? String(f.value))}`,
+      // PDFに書かれているとおりの文字列を、康熙部首などを通常の文字にして出す
+      label: `${f.label}: ${normalizeForDisplay(f.rawText ?? String(f.value))}`,
       lowConfidence: (f.confidence ?? 1) < LOW_CONFIDENCE,
     }));
 }

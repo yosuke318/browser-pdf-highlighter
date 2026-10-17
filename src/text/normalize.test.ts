@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeChar, normalizeText, rangeBBox, toSourceRange } from "./normalize.ts";
+import { normalizeChar, normalizeForDisplay, normalizeText, rangeBBox, toSourceRange } from "./normalize.ts";
 import type { TextSegment } from "./types.ts";
 
 describe("1文字の正規化", () => {
@@ -70,4 +70,9 @@ it("濁点・半濁点が分かれた文字は、前の文字と合わせて1文
   const n = normalizeText("ﾌﾟﾗﾝ");
   expect(n.text).toBe("プラン");
   expect(n.sourceIndex).toEqual([0, 2, 3]);
+});
+
+it("画面に出すための正規化は、空白を1つにまとめて残す", () => {
+  expect(normalizeForDisplay(" ⼭⽥　 太郎 ")).toBe("山田 太郎");
+  expect(normalizeForDisplay("昭和 63 年 4 ⽉ 15 ⽇")).toBe("昭和 63 年 4 月 15 日");
 });

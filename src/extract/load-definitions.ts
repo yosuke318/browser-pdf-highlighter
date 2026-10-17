@@ -4,7 +4,8 @@ import type { DocumentRules } from "./rules.ts";
 // 定義ファイルを置くだけで、新しい書類タイプが抽出の対象になる(ここを書き換える必要はない)。
 // 各ファイルは defineDocument(...) の結果を default export する。
 
-const modules = import.meta.glob<{ default: DocumentRules }>("./definitions/*.ts", { eager: true });
+// テスト(*.test.ts)は書類定義ではないので読み込まない
+const modules = import.meta.glob<{ default: DocumentRules }>(["./definitions/*.ts", "!./definitions/*.test.ts"], { eager: true });
 
 function load(): DocumentRules[] {
   const definitions = Object.entries(modules).map(([path, module]) => {
