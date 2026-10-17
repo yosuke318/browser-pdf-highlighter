@@ -11,7 +11,7 @@ import { parseDate, parseMoney, parseYear } from "../text/values.ts";
 
 export type FindResult = "found" | "not-found" | "not-checked";
 
-/** 1行分の文字列。セルの間は区切り文字(|)でつなぎ、セルをまたいだ値も探せるようにする */
+/** 1行分の、正規化したセルの配列。セルをつなげた文字列も候補にして、セルをまたいだ値も探せるようにする */
 interface LineText {
   /** セルごとの正規化した文字列 */
   cells: string[];
