@@ -61,6 +61,23 @@ describe("抽出結果からハイライトを作る", () => {
     });
   });
 
+  it("1桁ずつのマス目に書かれた金額も、読みやすい形で説明に出す", () => {
+    const digits: ExtractionResult = {
+      documentId: "tax-return",
+      fields: [
+        field("businessRevenue", {
+          label: "事業収入",
+          type: "money",
+          value: 9_600_000,
+          rawText: "9 6 0 0 0 0 0",
+          page: 1,
+          bbox: [box],
+        }),
+      ],
+    };
+    expect(highlightsFromExtraction(digits, 1)[0]?.label).toBe("事業収入: 9,600,000円");
+  });
+
   it("ほかの項目から計算した値は、計算した値ともとの項目を説明に出す", () => {
     const derived: ExtractionResult = {
       documentId: "resident-tax-notice",
@@ -80,8 +97,8 @@ describe("抽出結果からハイライトを作る", () => {
     expect(highlightsFromExtraction(derived, 1)[1]?.label).toBe("対象年: 2025(年度から計算)");
   });
 
-  it("確からしさが低い値は、要確認にする。文字列以外の値は、取り出したままの文字列を説明に使う", () => {
-    expect(highlightsFromExtraction(result, 1)[1]).toMatchObject({ lowConfidence: true, label: "支払金額: 5,800,000" });
+  it("確からしさが低い値は、要確認にする。金額は値から「5,800,000円」の形で説明に出す", () => {
+    expect(highlightsFromExtraction(result, 1)[1]).toMatchObject({ lowConfidence: true, label: "支払金額: 5,800,000円" });
   });
 });
 

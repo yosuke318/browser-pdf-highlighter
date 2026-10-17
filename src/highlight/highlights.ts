@@ -1,4 +1,4 @@
-import type { ExtractionResult } from "../extract/engine.ts";
+import type { ExtractionResult, FieldResult } from "../extract/engine.ts";
 import { normalizeForDisplay } from "../text/normalize.ts";
 import type { Rect } from "../text/types.ts";
 import { categoryOf, type HighlightCategory } from "./categories.ts";
@@ -36,13 +36,21 @@ export function highlightsFromExtraction(result: ExtractionResult, page: number)
       page,
       rects: f.bbox,
       kind: { type: "field", category: categoryOf(f.key) },
-      // PDFに書かれているとおりの文字列を、康熙部首などを通常の文字にして出す。
       // ほかの項目から計算した値は、PDFに書かれていないので、計算した値ともとの項目を出す
       label: f.derivedFrom
         ? `${f.label}: ${String(f.value)}(${labels.get(f.derivedFrom) ?? f.derivedFrom}から計算)`
-        : `${f.label}: ${normalizeForDisplay(f.rawText ?? String(f.value))}`,
+        : `${f.label}: ${displayValue(f)}`,
       lowConfidence: (f.confidence ?? 1) < LOW_CONFIDENCE,
     }));
+}
+
+/**
+ * 説明に出す値。金額は、1桁ずつのマス目や「120」「万円」のように分かれて書かれていても読みやすいよう、
+ * 値から「9,600,000円」の形にする。それ以外は、PDFに書かれているとおりの文字列を、康熙部首などを通常の文字にして出す
+ */
+function displayValue(f: FieldResult): string {
+  if (f.type === "money" && typeof f.value === "number") return `${f.value.toLocaleString("ja-JP")}円`;
+  return normalizeForDisplay(f.rawText ?? String(f.value));
 }
 
 /** PDF座標の長方形を、画面上の長方形(左上が原点、単位は CSS px)に変換する関数 */

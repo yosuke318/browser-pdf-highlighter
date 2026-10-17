@@ -262,6 +262,45 @@ describe("複数のルールと確からしさ", () => {
   });
 });
 
+describe("左の縦書きの区分で絞る", () => {
+  /** 縦書きの見出し。中心の高さ center に、1文字ずつ縦に並べる */
+  function vertical(text: string, x: number, center: number): TextSegment {
+    const n = [...text].length;
+    return { ...cell(text, x, center - n * 5), bbox: { x0: x, y0: center - n * 5, x1: x + 10, y1: center + n * 5 } };
+  }
+
+  it("同じラベルが複数あっても、指定した区分の中のものを使う", () => {
+    const segments = [
+      vertical("収入金額等", 30, 650),
+      cell("事業", 50, 680),
+      cell("9600000", 150, 680),
+      vertical("所得金額等", 30, 450),
+      cell("事業", 50, 470),
+      cell("3850000", 150, 470),
+    ];
+    const label = { kind: "label", labels: ["事業"], direction: "right" } as const;
+    const { field } = run(
+      {
+        businessRevenue: [{ ...label, sideHeading: ["収入金額等"] }],
+        businessIncome: [{ ...label, sideHeading: ["所得金額等"] }],
+      },
+      [page(segments)],
+      "tax-return",
+    );
+    expect(field("businessRevenue")?.value).toBe(9_600_000);
+    expect(field("businessIncome")?.value).toBe(3_850_000);
+  });
+
+  it("左に縦書きの見出しがなければ、ラベルを使わない", () => {
+    const { field } = run(
+      { businessRevenue: [{ kind: "label", labels: ["事業"], direction: "right", sideHeading: ["収入金額等"] }] },
+      [page([cell("事業", 50, 680), cell("9600000", 150, 680)])],
+      "tax-return",
+    );
+    expect(field("businessRevenue")?.found).toBe(false);
+  });
+});
+
 describe("表から一覧を取る", () => {
   const columns = { lender: ["借入先"], purpose: ["借入目的"], balance: ["借入残高"], annualRepayment: ["年間返済額"] };
 
