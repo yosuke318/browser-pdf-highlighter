@@ -35,7 +35,7 @@ export function HighlightLayer({ highlights, toScreen, rotation, selectedId, onS
           return (
             <button
               type="button"
-              key={`${h.id}:${rect.x0},${rect.y0}`}
+              key={`${h.id}:${i}`}
               className={className(h, selected)}
               style={style}
               title={h.label}
