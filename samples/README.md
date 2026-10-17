@@ -24,7 +24,7 @@ npm run samples:check  # pdf.js で読んで、ページの種類が manifest.js
 
 - `text.pdf` … テキストPDF(文字データあり)。OCRの結果と比べる基準にも使える
 - `scan.pdf` … スキャンPDF(画像のみ、200dpi相当、傾き・ノイズあり)
-- `expected.json` … PDFに書かれている値(正解データ)。抽出項目が決まったら形式を見直す
+- `expected.json` … PDFに書かれている値(正解データ)。形式は `schema/extraction-fields.json` の抽出項目の定義に合わせている
 
 `pdf-kinds/` はテキストPDFかスキャンPDFかの自動判別をテストするためのもの:
 
@@ -32,6 +32,31 @@ npm run samples:check  # pdf.js で読んで、ページの種類が manifest.js
 - `mixed.pdf` … 1ページ目が確定申告書のテキストPDF、2ページ目が源泉徴収票のスキャンPDF
 
 `manifest.json` に、全ファイルのページごとの種類(`text` / `scanned` / `searchable`)をまとめている。
+
+## リグレッションテスト
+
+`npm test` で、ダミーPDFを使った次のテストも走る(`src/regression/`)。CIでも毎回実行する。
+
+| テスト | 確かめること | 記録 |
+|---|---|---|
+| `text-coverage.test.ts` | テキストPDFから取り出した文字の中に、正解データの各値が見つかるか(文字の取り出しと正規化の確認) | `src/regression/__snapshots__/text-coverage.json` |
+| `extraction.test.ts` | 書類の抽出処理(`src/extract/extractors.ts`)で抽出した値が、正解データと一致するか | `src/regression/__snapshots__/extraction/` |
+
+- 記録と結果が違うと失敗する。値が見つからなくなった(悪くなった)ときだけでなく、見つかるようになった(良くなった)ときも失敗するので、結果を確かめてから `npx vitest run src/regression -u` で記録を更新してコミットする
+- 抽出処理は、誤った値や定義にない項目を1つでも返すと失敗する。抽出できなかった項目は失敗にせず、記録に残す
+- 抽出処理を登録していない書類は「未実装(todo)」と表示される。スキャンPDFは、OCRに対応するまで調べない
+- 今の記録で見つからない値と理由:
+  - 住民税決定通知書の `incomeYear`(対象年): 書類には「令和8年度」しか書かれておらず、年度から計算する値のため
+  - 住宅ローン申込書の `birthDate`: 元号を「昭和・平成」の選択肢に丸を付けて選ぶ様式で、丸は図形なので文字からは元号が分からないため
+
+## 実データの扱い
+
+**実在の書類(マスク済みのものを含む)は、リポジトリに入れない。** テスト・コメント・コミットメッセージ・Issue・PRにも、実在の人物の情報を書かない。
+
+- 手元で実データを試すときは `local-samples/` に置く。このディレクトリは `.gitignore` で除外している
+- `npm run check:files`(CIでも実行)が、`samples/` の外にあるPDF・画像と、`manifest.json` に載っていないPDFを見つけると失敗する
+- ダミーPDFを増やすときは、`scripts/generate-samples/` で生成し、`manifest.json` と `expected.json` を合わせて更新する。人物・会社などは「見本県」「サンプル商事」のように架空と分かる名前にし、電話番号は `000` 始まりにする
+- 実データで見つかった様式の特徴(欄の名前・並び・書き方)は、個人情報を含めずにダミーのテンプレートへ反映する
 
 ## 注意点
 

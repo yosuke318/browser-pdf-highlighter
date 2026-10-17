@@ -12,6 +12,7 @@
     "format": "biome check --write .",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json",
     "check:build": "tsx scripts/check-build.ts",
+    "check:files": "tsx scripts/check-tracked-files.ts",
     "samples": "tsx scripts/generate-samples/main.ts",
     "samples:check": "tsx scripts/generate-samples/check.ts && tsx scripts/check-expected.ts"
   },
