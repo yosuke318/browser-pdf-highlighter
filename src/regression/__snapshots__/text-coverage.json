@@ -1,0 +1,90 @@
+{
+  "withholding-slip/text.pdf": {
+    "pages": [
+      "text(pdf)"
+    ],
+    "found": "11/11",
+    "notFound": []
+  },
+  "withholding-slip/scan.pdf": {
+    "pages": [
+      "scanned(ocr)"
+    ],
+    "ocrOnly": true
+  },
+  "pdf-kinds/searchable.pdf": {
+    "pages": [
+      "searchable(ocr)"
+    ],
+    "ocrOnly": true
+  },
+  "tax-certificate/text.pdf": {
+    "pages": [
+      "text(pdf)"
+    ],
+    "found": "11/11",
+    "notFound": []
+  },
+  "tax-certificate/scan.pdf": {
+    "pages": [
+      "scanned(ocr)"
+    ],
+    "ocrOnly": true
+  },
+  "resident-tax-notice/text.pdf": {
+    "pages": [
+      "text(pdf)"
+    ],
+    "found": "10/11",
+    "notFound": [
+      "incomeYear"
+    ]
+  },
+  "resident-tax-notice/scan.pdf": {
+    "pages": [
+      "scanned(ocr)"
+    ],
+    "ocrOnly": true
+  },
+  "tax-return/text.pdf": {
+    "pages": [
+      "text(pdf)"
+    ],
+    "found": "12/12",
+    "notFound": []
+  },
+  "tax-return/scan.pdf": {
+    "pages": [
+      "scanned(ocr)"
+    ],
+    "ocrOnly": true
+  },
+  "home-loan-application/text.pdf": {
+    "pages": [
+      "text(pdf)"
+    ],
+    "found": "17/18",
+    "notFound": [
+      "birthDate"
+    ]
+  },
+  "home-loan-application/scan.pdf": {
+    "pages": [
+      "scanned(ocr)"
+    ],
+    "ocrOnly": true
+  },
+  "rental-application/text.pdf": {
+    "pages": [
+      "text(pdf)"
+    ],
+    "found": "19/19",
+    "notFound": []
+  },
+  "rental-application/scan.pdf": {
+    "pages": [
+      "scanned(ocr)"
+    ],
+    "ocrOnly": true
+  }
+}

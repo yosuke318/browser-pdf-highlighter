@@ -20,6 +20,11 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # 実データらしいPDF・画像が入っていないか
+      - run: npm run check:files
+      # ダミーPDFのページの種類と、正解データの形式の確認
+      - run: npm run samples:check
+      # ユニットテストと、ダミーPDFを使ったリグレッションテスト(src/regression/)
       - run: npm test
       - run: npm run build
       - run: npm run check:build

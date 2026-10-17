@@ -19,7 +19,11 @@ npm run lint         # Biome による Lint とフォーマットの確認(npm r
 npm run typecheck    # TypeScript の型チェック
 npm test             # Vitest によるユニットテスト
 npm run check:build  # dist/ が外部のURLから何も読み込まないことの確認(build の後に実行)
+npm run check:files  # 実データらしいPDF・画像をリポジトリに入れていないことの確認
+npm run samples:check  # ダミーPDFのページの種類と、正解データの形式の確認
 ```
+
+`npm test` には、ダミーPDFを使ったリグレッションテストも含まれます。仕組みと、実データの扱いのルールは [samples/README.md](samples/README.md) を見てください。
 
 CI(GitHub Actions)では、上のチェックとビルドをすべて実行します。
 
