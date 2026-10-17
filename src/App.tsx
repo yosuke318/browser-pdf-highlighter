@@ -1,4 +1,4 @@
-import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
+import { type PDFDocumentProxy, RenderingCancelledException, type RenderTask } from "pdfjs-dist";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { openPdf } from "./pdf/pdfjs.ts";
 
@@ -14,9 +14,12 @@ export function App() {
     const file = event.target.files?.[0];
     if (!file) return;
     setError(null);
+    // 前に開いていたPDFのメモリを解放する
+    void pdf?.loadingTask.destroy();
     try {
       setPdf(await openPdf(file));
-    } catch {
+    } catch (e) {
+      console.error(e);
       setPdf(null);
       setError("PDFを読み込めませんでした。ファイルが壊れていないか確認してください。");
     }
@@ -34,17 +37,16 @@ export function App() {
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       renderTask = page.render({ canvas, viewport });
-      await renderTask.promise.catch(() => {});
-    })();
+      await renderTask.promise;
+    })().catch((e: unknown) => {
+      // ページを切り替えたときの描画中断はエラーではない
+      if (e instanceof RenderingCancelledException) return;
+      console.error(e);
+      setError("ページを描画できませんでした。");
+    });
     return () => {
       cancelled = true;
       renderTask?.cancel();
-    };
-  }, [pdf]);
-
-  useEffect(() => {
-    return () => {
-      void pdf?.loadingTask.destroy();
     };
   }, [pdf]);
 
