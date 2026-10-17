@@ -3,7 +3,7 @@ import { groupLines } from "../text/lines.ts";
 import { type NormalizedText, normalizeText } from "../text/normalize.ts";
 import type { Rect, TextSegment } from "../text/types.ts";
 import { convertValue } from "./convert.ts";
-import type { DocumentRules, LabelRule, PatternRule, RegionRule, RelativeRect, Rule, Section } from "./rules.ts";
+import type { DocumentRules, LabelRule, PatternRule, RegionRule, RelativeRect, Rule, Section, TableRule } from "./rules.ts";
 
 // 抽出ルールの実行。書類定義(DocumentRules)のルールを、ページから取り出した文字(TextSegment)に当てはめ、
 // 項目ごとに値と、その値がPDF上のどこにあったか(ページ・長方形)を返す。
@@ -308,6 +308,74 @@ function regionCandidates(rule: RegionRule, type: FieldType, page: ExtractionPag
   return c ? [c] : [];
 }
 
+const DEFAULT_MAX_ROWS = 10;
+
+function tableCandidates(rule: TableRule, field: FieldDefinition, page: ExtractionPage): Candidate[] {
+  const items = field.items ?? [];
+  const segments = scope(page, rule);
+
+  // 列の見出しを探す。最初に見つかった見出しと同じ行にあるものだけを使う
+  const headers: { item: FieldDefinition; segment: TextSegment }[] = [];
+  for (const item of items) {
+    const labels = (rule.columns[item.key] ?? []).map((l) => normalizeText(l).text);
+    const found = segments
+      .filter((s) => labels.some((l) => norm(s).text === l))
+      .filter((s) => !headers[0] || verticalOverlap(s.bbox, headers[0].segment.bbox) > height(s.bbox) / 2)
+      .sort((p, q) => q.bbox.y1 - p.bbox.y1)[0];
+    if (found) headers.push({ item, segment: found });
+  }
+  if (headers.length < 2) return [];
+  headers.sort((p, q) => p.segment.bbox.x0 - q.segment.bbox.x0);
+  const top = Math.min(...headers.map((h) => h.segment.bbox.y0));
+  const h = Math.max(...headers.map((x) => height(x.segment.bbox)));
+
+  // 列の範囲: 見出しの左端から、次の列の見出しの左端まで
+  const columnOf = (s: TextSegment) => {
+    let index = -1;
+    headers.forEach((header, i) => {
+      if (s.bbox.x0 >= header.segment.bbox.x0 - h / 2) index = i;
+    });
+    return index;
+  };
+
+  const rows: Record<string, unknown>[] = [];
+  const used: TextSegment[] = [];
+  const raws: string[] = [];
+  const lines = groupLines(segments.filter((s) => centerY(s.bbox) < top && !headers.some((x) => x.segment === s)));
+  for (const line of lines.slice(0, rule.maxRows ?? DEFAULT_MAX_ROWS)) {
+    const row: Record<string, unknown> = {};
+    const cells: TextSegment[] = [];
+    headers.forEach((header, i) => {
+      const inColumn = line.segments.filter((s) => columnOf(s) === i);
+      if (inColumn.length === 0) return;
+      const raw = inColumn.map((s) => s.text).join(" ");
+      const converted = convertValue(header.item.type, raw);
+      if (!converted) return;
+      row[header.item.key] = converted.value;
+      cells.push(...inColumn);
+    });
+    // 必須の列が空の行(何も書かれていない行・単位だけの行など)は飛ばす
+    const complete = items.filter((i) => i.required).every((i) => row[i.key] !== undefined);
+    if (!complete || Object.keys(row).length === 0) continue;
+    rows.push(row);
+    used.push(...cells);
+    raws.push(cells.map((s) => s.text).join(" "));
+  }
+  if (rows.length === 0) return [];
+  return [
+    {
+      page: page.pageNumber,
+      raw: raws.join(" / "),
+      value: rows,
+      warnings: [],
+      boxes: used.map((s) => s.bbox),
+      segments: used,
+      distance: 0,
+      size: h,
+    },
+  ];
+}
+
 // ---- 実行 ----
 
 function ruleId(rule: Rule, index: number): string {
@@ -318,15 +386,27 @@ function notFound(field: FieldDefinition): FieldResult {
   return { key: field.key, label: field.label, type: field.type, required: field.required, found: false, bbox: [], warnings: [] };
 }
 
-function firstCandidate(rule: Exclude<Rule, { kind: "derive" }>, type: FieldType, pages: ExtractionPage[]): Candidate | null {
+function candidatesOf(rule: Exclude<Rule, { kind: "derive" }>, field: FieldDefinition, page: ExtractionPage): Candidate[] {
+  switch (rule.kind) {
+    case "label":
+      return labelCandidates(rule, field.type, page);
+    case "pattern":
+      return patternCandidates(rule, field.type, page);
+    case "region":
+      return regionCandidates(rule, field.type, page);
+    case "table":
+      return field.type === "list" ? tableCandidates(rule, field, page) : [];
+  }
+}
+
+function firstCandidate(
+  rule: Exclude<Rule, { kind: "derive" }>,
+  field: FieldDefinition,
+  pages: ExtractionPage[],
+): Candidate | null {
   // 前のページで見つかった値を優先し、同じページの中では距離が近いものを使う
   for (const page of pages) {
-    const candidates =
-      rule.kind === "label"
-        ? labelCandidates(rule, type, page)
-        : rule.kind === "pattern"
-          ? patternCandidates(rule, type, page)
-          : regionCandidates(rule, type, page);
+    const candidates = candidatesOf(rule, field, page);
     const prefer = rule.kind === "label" ? (rule.prefer ?? "nearest") : "nearest";
     const best = candidates.sort((p, q) => {
       // 文字の大きさは、わずかな違い(0.5pt 未満)を同じとみなす
@@ -357,7 +437,7 @@ export function extractDocument(rules: DocumentRules, pages: readonly Extraction
         derived.push([field, index, rule]);
         break;
       }
-      const c = firstCandidate(rule, field.type, ordered);
+      const c = firstCandidate(rule, field, ordered);
       if (!c) continue;
       const readConfidence = Math.min(...c.segments.map((s) => s.confidence));
       result = {
