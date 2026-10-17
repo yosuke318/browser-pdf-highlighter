@@ -1,6 +1,7 @@
-import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from "pdfjs-dist";
+import { GlobalWorkerOptions, getDocument, OPS, type PDFDocumentProxy, type PDFPageProxy } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { classifyPdfjsError, hasPdfSignature, OpenPdfError } from "./open-file.ts";
+import { type PageReading, readPage } from "./read-page.ts";
 
 // pdf.js の初期設定。worker とデータファイルは、すべてこのアプリと同じオリジンから読み込む
 // (データファイルの配信は vite-plugins/pdfjs-assets.ts)。
@@ -38,4 +39,9 @@ export async function openPdf(file: File): Promise<PDFDocumentProxy> {
   } catch (cause) {
     throw new OpenPdfError(classifyPdfjsError(cause), { cause });
   }
+}
+
+/** ページの種類を判別し、pdf.js で文字と座標を取り出す */
+export function readPdfPage(page: PDFPageProxy): Promise<PageReading> {
+  return readPage(page, OPS);
 }

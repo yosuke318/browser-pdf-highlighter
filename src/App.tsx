@@ -4,8 +4,11 @@ import { EmptyState } from "./components/EmptyState.tsx";
 import { AlertIcon, DocumentIcon, LockIcon, UploadIcon } from "./components/icons.tsx";
 import { ResultPanel } from "./components/ResultPanel.tsx";
 import { OpenPdfError, openErrorMessage } from "./pdf/open-file.ts";
-import { openPdf } from "./pdf/pdfjs.ts";
+import type { ReadMethod } from "./pdf/page-kind.ts";
+import { openPdf, readPdfPage } from "./pdf/pdfjs.ts";
+import type { PageReading } from "./pdf/read-page.ts";
 import { PageCanvas } from "./viewer/PageCanvas.tsx";
+import { OcrNotice, ReadMethodStatus } from "./viewer/ReadMethodStatus.tsx";
 import { useElementWidth } from "./viewer/useElementWidth.ts";
 import { useFileDrop } from "./viewer/useFileDrop.ts";
 import { ViewerToolbar } from "./viewer/ViewerToolbar.tsx";
@@ -23,6 +26,9 @@ export function App() {
   const [pageNumber, setPageNumber] = useState(1);
   const [page, setPage] = useState<PDFPageProxy | null>(null);
   const [zoom, setZoom] = useState<Zoom>({ mode: "fit-width" });
+  // ページごとの読み取り結果と、利用者が手動で選んだ読み取り方法(ページ番号 → 方法)
+  const [reading, setReading] = useState<PageReading | null>(null);
+  const [methodOverrides, setMethodOverrides] = useState<Record<number, ReadMethod>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pageAreaRef, areaWidth] = useElementWidth<HTMLDivElement>();
   // 後から始めた読み込みだけを反映するための番号
@@ -44,6 +50,8 @@ export function App() {
         return { doc, fileName: file.name };
       });
       setPage(null);
+      setReading(null);
+      setMethodOverrides({});
       setPageNumber(1);
       setZoom({ mode: "fit-width" });
     } catch (e) {
@@ -82,6 +90,25 @@ export function App() {
     };
   }, [opened, pageNumber]);
 
+  // 表示中のページの種類を判別し、文字と座標を取り出す
+  useEffect(() => {
+    if (!page) return;
+    let cancelled = false;
+    setReading(null);
+    readPdfPage(page).then(
+      (r) => {
+        if (!cancelled) setReading(r);
+      },
+      (e: unknown) => {
+        console.error(e);
+        if (!cancelled) setError("ページの文字を読み取れませんでした。");
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [page]);
+
   const handleRenderError = useCallback((e: unknown) => {
     console.error(e);
     setError("ページを描画できませんでした。");
@@ -92,6 +119,15 @@ export function App() {
   const scale = resolveScale(zoom, pageWidth, areaWidth);
   const numPages = opened?.doc.numPages ?? 0;
   const openDialog = () => fileInputRef.current?.click();
+  const override = reading ? methodOverrides[reading.pageNumber] : undefined;
+  const method = override ?? reading?.classification.method;
+  const overridden = override !== undefined && override !== reading?.classification.method;
+
+  function toggleMethod() {
+    if (!reading || !method) return;
+    const next: ReadMethod = method === "pdf" ? "ocr" : "pdf";
+    setMethodOverrides((current) => ({ ...current, [reading.pageNumber]: next }));
+  }
 
   return (
     <div className="app">
@@ -124,6 +160,9 @@ export function App() {
             onFitWidth={() => setZoom({ mode: "fit-width" })}
           />
         )}
+        {reading && method && (
+          <ReadMethodStatus kind={reading.classification.kind} method={method} overridden={overridden} onToggle={toggleMethod} />
+        )}
         <div className="spacer" />
         <div className="safe-badge">
           <LockIcon size={16} />
@@ -153,6 +192,7 @@ export function App() {
               読み込み中…
             </p>
           )}
+          {reading && method === "ocr" && <OcrNotice kind={reading.classification.kind} overridden={overridden} />}
           {opened ? (
             <div ref={pageAreaRef} className="page-area">
               {page && <PageCanvas page={page} scale={scale} onError={handleRenderError} />}
