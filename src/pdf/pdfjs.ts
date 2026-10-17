@@ -1,5 +1,6 @@
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { classifyPdfjsError, hasPdfSignature, OpenPdfError } from "./open-file.ts";
 
 // pdf.js の初期設定。worker とデータファイルは、すべてこのアプリと同じオリジンから読み込む
 // (データファイルの配信は vite-plugins/pdfjs-assets.ts)。
@@ -25,8 +26,16 @@ export function documentOptions() {
   };
 }
 
-/** ローカルのファイルを読み込む。ファイルの中身はブラウザの外へ送信しない */
+/**
+ * ローカルのファイルを読み込む。ファイルの中身はブラウザの外へ送信しない。
+ * 失敗したときは、理由の種類を持った OpenPdfError を投げる。
+ */
 export async function openPdf(file: File): Promise<PDFDocumentProxy> {
   const data = new Uint8Array(await file.arrayBuffer());
-  return getDocument({ ...documentOptions(), data }).promise;
+  if (!hasPdfSignature(data)) throw new OpenPdfError("not-pdf");
+  try {
+    return await getDocument({ ...documentOptions(), data }).promise;
+  } catch (cause) {
+    throw new OpenPdfError(classifyPdfjsError(cause), { cause });
+  }
 }

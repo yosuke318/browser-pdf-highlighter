@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { describe, expect, it } from "vitest";
 import { PDFJS_ASSET_DIRS } from "../../vite-plugins/pdfjs-assets.ts";
-import { buildPredefinedCmapPdf } from "./test-fixtures/predefined-cmap-pdf.ts";
+import { buildPredefinedCmapPdf } from "./test-fixtures/test-pdf.ts";
 
 const PDFJS_ROOT = dirname(createRequire(import.meta.url).resolve("pdfjs-dist/package.json"));
 
