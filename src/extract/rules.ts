@@ -82,6 +82,19 @@ export interface RegionRule extends RuleBase {
   rect: RelativeRect;
 }
 
+/**
+ * 表から、一覧(list 型)の項目を取る(住宅ローン申込書の既存借入など)。
+ * 列の見出しを探して列の位置を決め、見出しの下の行を1行ずつ読む。
+ * 抽出項目の定義で必須の列が空の行(何も書かれていない行など)は飛ばす
+ */
+export interface TableRule extends RuleBase {
+  kind: "table";
+  /** 一覧の1行分の項目のキーごとの、列の見出し(表記ゆれ) */
+  columns: Record<string, readonly string[]>;
+  /** 読む行の最大の数。既定は 10 */
+  maxRows?: number;
+}
+
 /** ほかの項目の値から計算する(住民税決定通知書の対象年 = 年度 - 1 など) */
 export interface DeriveRule {
   kind: "derive";
@@ -91,7 +104,7 @@ export interface DeriveRule {
   compute: (value: unknown) => unknown;
 }
 
-export type Rule = LabelRule | PatternRule | RegionRule | DeriveRule;
+export type Rule = LabelRule | PatternRule | RegionRule | TableRule | DeriveRule;
 
 /** 1つの書類タイプの定義 */
 export interface DocumentRules {

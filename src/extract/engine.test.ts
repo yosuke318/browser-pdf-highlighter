@@ -262,6 +262,29 @@ describe("複数のルールと確からしさ", () => {
   });
 });
 
+describe("表から一覧を取る", () => {
+  const columns = { lender: ["借入先"], purpose: ["借入目的"], balance: ["借入残高"], annualRepayment: ["年間返済額"] };
+
+  it("列の見出しの位置で列を分け、見出しの下の行を読む", () => {
+    const { field } = run(
+      { otherDebts: [{ kind: "table", columns }] },
+      [page([cell("借入先", 40, 700), cell("借入残高", 300, 700), cell("見本ファイナンス", 40, 680), cell("120万円", 300, 680)])],
+      "home-loan-application",
+    );
+    expect(field("otherDebts")?.value).toEqual([{ lender: "見本ファイナンス", balance: 1_200_000 }]);
+    expect(field("otherDebts")?.bbox).toHaveLength(2);
+  });
+
+  it("列の見出しが1つしか見つからなければ、表とみなさない", () => {
+    const { field } = run(
+      { otherDebts: [{ kind: "table", columns }] },
+      [page([cell("借入先", 40, 700), cell("見本ファイナンス", 40, 680)])],
+      "home-loan-application",
+    );
+    expect(field("otherDebts")?.found).toBe(false);
+  });
+});
+
 describe("ほかの項目から計算する", () => {
   it("もとの項目の位置を引き継ぎ、計算した値であることを注意として残す", () => {
     const { field } = run(
