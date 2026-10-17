@@ -87,8 +87,6 @@ export type Rule = LabelRule | PatternRule | RegionRule | DeriveRule;
 export interface DocumentRules {
   /** 書類ID。schema/extraction-fields.json の documents[].id と同じにする */
   id: string;
-  /** 書類の種類を見分けるための、特徴的な文言(書類タイプの自動判定で使う) */
-  keywords?: readonly string[];
   /**
    * 項目のキーごとのルール。上から順に試し、最初に値が取れたルールを使う。
    * 定義にない項目は抽出しない(抽出結果では「未検出」になる)

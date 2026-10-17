@@ -14,7 +14,6 @@ import { defineDocument } from "../rules.ts";
 
 export default defineDocument({
   id: "withholding-slip",
-  keywords: ["給与所得の源泉徴収票"],
   fields: {
     // 「令和7年分」を、行の文字列から正規表現で取る
     incomeYear: [{ kind: "pattern", pattern: /((?:令和|平成)\d+年)分/ }],
@@ -69,3 +68,4 @@ npx vitest run src/regression -u      # 抽出できる項目が増えたら、�
 ```
 
 新しい書類タイプを足すときは、`samples/` にダミーPDFと正解データも足す(`samples/README.md`)。
+書類タイプを自動で判定するための文言は、書類定義ではなく `src/classify/document-type.ts` の `DOCUMENT_KEYWORDS` に足す。
