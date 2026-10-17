@@ -8,6 +8,8 @@ import { type FontStyleLike, layoutText, type TextItemLike } from "./text-layout
 
 export interface PageReading {
   pageNumber: number;
+  /** ページの範囲 [x0, y0, x1, y1](PDFページ座標。page.view) */
+  view: [number, number, number, number];
   classification: PageClassification;
   /**
    * pdf.js で取り出した文字(行・セル単位)。
@@ -27,6 +29,7 @@ export async function readPage(page: PDFPageProxy, ops: OpCodes): Promise<PageRe
   const text = items.map((item) => item.str).join("");
   return {
     pageNumber: page.pageNumber,
+    view: [x0, y0, x1, y1],
     classification: classifyPage(pageStats(text, operators)),
     pdfSegments: layoutText(items, styles),
   };

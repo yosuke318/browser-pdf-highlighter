@@ -30,6 +30,7 @@ description: >-
 全書類の抽出項目(キー名・型・必須かどうか・元の欄の表記ゆれ)は
 `schema/extraction-fields.json` に定義している。説明と差分の判定ルールは
 `docs/extraction-fields.md`。キー名を新しく決めるときは、まずこの定義を見る。
+書類定義(抽出ルール)の書き方は `docs/extraction-fields.md` ではなく `docs/extraction-rules.md` にある。
 
 未作成の書類を扱うときは、推測で欄の意味を断定しない。様式が手元にない場合は、
 `samples/` のダミーと `scripts/generate-samples/templates/` のテンプレートを見て、

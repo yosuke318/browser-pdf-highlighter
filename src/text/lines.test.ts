@@ -19,15 +19,8 @@ function segment(text: string, x0: number, y0: number, x1: number, y1: number): 
 
 describe("groupLines", () => {
   it("縦長のセルは独立した行になる", () => {
-    const lines = groupLines([
-      segment("A", 0, 10, 20, 30),
-      segment("B", 40, 10, 60, 30),
-      segment("縦書き", 10, 0, 30, 80),
-    ]);
+    const lines = groupLines([segment("A", 0, 10, 20, 30), segment("B", 40, 10, 60, 30), segment("縦書き", 10, 0, 30, 80)]);
 
-    expect(lines.map((line) => line.segments.map((s) => s.text))).toEqual([
-      ["縦書き"],
-      ["A", "B"],
-    ]);
+    expect(lines.map((line) => line.segments.map((s) => s.text))).toEqual([["縦書き"], ["A", "B"]]);
   });
 });

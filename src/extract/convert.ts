@@ -1,0 +1,56 @@
+import type { FieldType } from "../schema/fields.ts";
+import { normalizeChar, normalizeText } from "../text/normalize.ts";
+import { parseDate, parseMoney, parseYear } from "../text/values.ts";
+
+// 値の候補の文字列を、項目の型に合わせて値にする。変換できなければ null(その候補は使わない)。
+
+export interface Converted {
+  value: unknown;
+  /** 確認が必要な点(元号の期間外の日付など) */
+  warnings: string[];
+}
+
+const ERA = "令和|平成|昭和|大正|明治|[令平昭大明RHSTM]";
+const YEAR_MONTH = new RegExp(`^((?:${ERA})(?:元|\\d{1,2})|\\d{4})[年./-](\\d{1,2})月?$`, "i");
+
+export function convertValue(type: FieldType, raw: string): Converted | null {
+  const normalized = normalizeText(raw).text;
+  if (normalized === "") return null;
+  switch (type) {
+    case "text": {
+      // 康熙部首・全角英数字などは通常の文字にするが、空白は1つにして残す(氏名の「山田 太郎」など)
+      const value = [...raw.trim().replace(/\s+/gu, " ")].map((c) => (c === " " ? c : normalizeChar(c))).join("");
+      return { value, warnings: [] };
+    }
+    case "money": {
+      const money = parseMoney(raw);
+      return money ? { value: money.yen, warnings: [] } : null;
+    }
+    case "date": {
+      const date = parseDate(raw);
+      return date ? { value: date.iso, warnings: date.warnings } : null;
+    }
+    case "year": {
+      const year = parseYear(normalized.replace(/(分|度|中)$/, ""));
+      return year ? { value: year, warnings: [] } : null;
+    }
+    case "yearMonth": {
+      const m = YEAR_MONTH.exec(normalized);
+      if (!m) return null;
+      const year = parseYear(`${m[1] ?? ""}年`);
+      const month = Number(m[2]);
+      return year && month >= 1 && month <= 12 ? { value: `${year}-${String(month).padStart(2, "0")}`, warnings: [] } : null;
+    }
+    case "number": {
+      const m = /^(\d+(?:\.\d+)?)(歳|年|ヶ月|か月|カ月|人|件)?$/.exec(normalized);
+      return m ? { value: Number(m[1]), warnings: [] } : null;
+    }
+    case "boolean":
+      if (/^(○|〇|◯|✓|✔|レ|有|あり)$/.test(normalized)) return { value: true, warnings: [] };
+      if (/^(無|なし)$/.test(normalized)) return { value: false, warnings: [] };
+      return null;
+    case "list":
+      // 表の行を取る抽出には、まだ対応していない
+      return null;
+  }
+}
