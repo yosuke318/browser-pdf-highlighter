@@ -42,6 +42,7 @@ export function HighlightLayer({ highlights, toScreen, rotation, selectedId, onS
               title={h.label}
               aria-label={h.label}
               aria-pressed={selected}
+              data-highlight-id={h.id}
               onClick={() => onSelect?.(selected ? null : h.id)}
             >
               {rect === h.rects[0] && h.kind.type === "field" && (
