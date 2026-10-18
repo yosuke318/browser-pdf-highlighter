@@ -3,6 +3,7 @@ import type { FieldResult } from "../extract/engine.ts";
 import { groupPagesByDocument } from "./document-groups.ts";
 import { exportFileName, ImportError, parseExportedExtraction, toExportedExtraction } from "./export.ts";
 import { countReview, reviewFields, reviewReducer, unconfirmedKeys } from "./review.ts";
+import { isPagesComplete, PAGE_READ_FAILED } from "./useDocumentResults.ts";
 
 const box = { x0: 100, y0: 600, x1: 160.04, y1: 610 };
 
@@ -87,6 +88,13 @@ describe("書類のまとまり", () => {
       { id: "withholding-slip@3", documentId: "withholding-slip", pages: [3] },
       { id: "withholding-slip@5", documentId: "withholding-slip", pages: [5] },
     ]);
+  });
+
+  it("読み取り失敗したページも完了扱いになり、未完了の null だけが未完了と判定する", () => {
+    expect(isPagesComplete([])).toBe(false);
+    expect(isPagesComplete([null, null])).toBe(false);
+    expect(isPagesComplete([PAGE_READ_FAILED, null])).toBe(false);
+    expect(isPagesComplete([PAGE_READ_FAILED, { pageNumber: 1 } as never])).toBe(true);
   });
 });
 

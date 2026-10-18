@@ -26,11 +26,23 @@ export interface DocumentResult extends DocumentGroup {
 }
 
 export interface DocumentResults {
-  /** ページごとの状態。読み取りが終わっていないページは null */
+  /**
+   * 1ページごとの状態。
+   * null は「まだ読み取っていない」または「読み取りが失敗した」ことを表す。
+   * complete を見ると、すべてのページが解決済みかどうかを確認できる。
+   */
   pages: (PageState | null)[];
   documents: DocumentResult[];
   /** すべてのページを読み終えたか */
   complete: boolean;
+}
+
+export const PAGE_READ_FAILED = Symbol("page-read-failed");
+
+type PageReadingSlot = PageReading | typeof PAGE_READ_FAILED | null;
+
+export function isPagesComplete(readings: readonly PageReadingSlot[]): boolean {
+  return readings.length > 0 && readings.every((reading) => reading !== null);
 }
 
 export function useDocumentResults(
@@ -39,7 +51,7 @@ export function useDocumentResults(
   typeOverrides: Readonly<Record<number, string>>,
   onError: (message: string) => void,
 ): DocumentResults {
-  const [readings, setReadings] = useState<(PageReading | null)[]>([]);
+  const [readings, setReadings] = useState<PageReadingSlot[]>([]);
 
   // 全ページを順に読み取る。読み終えたページから表示に反映する
   useEffect(() => {
@@ -57,7 +69,9 @@ export function useDocumentResults(
           setReadings((current) => current.map((r, k) => (k === i - 1 ? reading : r)));
         } catch (e) {
           console.error(e);
-          if (!cancelled) onError(`${i}ページ目の文字を読み取れませんでした。`);
+          if (cancelled) return;
+          onError(`${i}ページ目の文字を読み取れませんでした。`);
+          setReadings((current) => current.map((r, k) => (k === i - 1 ? PAGE_READ_FAILED : r)));
         }
       }
     })();
@@ -69,7 +83,7 @@ export function useDocumentResults(
   const pages = useMemo(
     () =>
       readings.map((reading): PageState | null => {
-        if (!reading) return null;
+        if (reading === null || reading === PAGE_READ_FAILED) return null;
         const method = methodOverrides[reading.pageNumber] ?? reading.classification.method;
         const guess = guessDocumentType(method === "pdf" ? reading.pdfSegments : []);
         return { reading, method, guess, documentType: typeOverrides[reading.pageNumber] ?? guess.documentId };
@@ -90,5 +104,5 @@ export function useDocumentResults(
     });
   }, [pages]);
 
-  return { pages, documents, complete: readings.length > 0 && readings.every((r) => r !== null) };
+  return { pages, documents, complete: isPagesComplete(readings) };
 }
