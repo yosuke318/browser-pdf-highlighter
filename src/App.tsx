@@ -5,16 +5,21 @@ import { DocumentTypeCard } from "./components/DocumentTypeCard.tsx";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { AlertIcon, DocumentIcon, LockIcon, UploadIcon } from "./components/icons.tsx";
 import { ResultPanel } from "./components/ResultPanel.tsx";
+import { type ComparisonSide, compareDocuments, type FieldDiff } from "./diff/compare-fields.ts";
+import { DiffList } from "./diff/DiffList.tsx";
+import { sideFromExported, sideFromReviewed } from "./diff/sides.ts";
 import { convertValue } from "./extract/convert.ts";
 import { HighlightLayer } from "./highlight/HighlightLayer.tsx";
 import { HighlightLegend } from "./highlight/HighlightLegend.tsx";
-import { highlightsFromReviewed, type ToScreen } from "./highlight/highlights.ts";
+import { highlightsFromDiffs, highlightsFromReviewed, type ToScreen } from "./highlight/highlights.ts";
 import { OpenPdfError, openErrorMessage } from "./pdf/open-file.ts";
 import type { ReadMethod } from "./pdf/page-kind.ts";
 import { openPdf } from "./pdf/pdfjs.ts";
+import { ImportError, parseExportedExtraction } from "./results/export.ts";
 import { ResultList } from "./results/ResultList.tsx";
 import { type ReviewAction, type ReviewedField, type ReviewState, reviewFields, reviewReducer } from "./results/review.ts";
-import { useDocumentResults } from "./results/useDocumentResults.ts";
+import { analyzePdf, useDocumentResults } from "./results/useDocumentResults.ts";
+import { findDocument } from "./schema/fields.ts";
 import { groupLines } from "./text/lines.ts";
 import type { Rect } from "./text/types.ts";
 import { PageCanvas } from "./viewer/PageCanvas.tsx";
@@ -28,6 +33,13 @@ import { resolveScale, type Zoom, zoomIn, zoomOut } from "./viewer/zoom.ts";
 interface OpenedPdf {
   doc: PDFDocumentProxy;
   fileName: string;
+}
+
+/** 前回の資料(前回のPDF、または前回書き出した抽出結果のJSON) */
+interface PreviousDocument {
+  fileName: string;
+  documentType: string;
+  side: ComparisonSide;
 }
 
 /** 書類のまとまりの中の1項目 */
@@ -54,6 +66,10 @@ export function App() {
   const [selected, setSelected] = useState<FieldRef | null>(null);
   const [rangeTarget, setRangeTarget] = useState<FieldRef | null>(null);
   const [rangeError, setRangeError] = useState<string | null>(null);
+  // 前回と比較している資料
+  const [previous, setPrevious] = useState<PreviousDocument | null>(null);
+  const [comparing, setComparing] = useState(false);
+  const compareInputRef = useRef<HTMLInputElement>(null);
   // 一覧から項目を選んだときだけ、PDF上のハイライトまでスクロールする
   const scrollToHighlight = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,6 +98,7 @@ export function App() {
       setReviews({});
       setSelected(null);
       setRangeTarget(null);
+      setPrevious(null);
       setPageNumber(1);
       setZoom({ mode: "fit-width" });
     } catch (e) {
@@ -149,12 +166,27 @@ export function App() {
     methodOverrides[pageNumber] !== undefined &&
     methodOverrides[pageNumber] !== current.reading.classification.method;
 
+  // 前回と比べる今回の書類: 前回と同じ書類タイプの書類のうち、表示中のページを含むもの(なければ最初のもの)
+  const comparison = useMemo(() => {
+    if (!previous) return null;
+    const candidates = reviewed.filter((r) => r.document.documentId === previous.documentType && r.items);
+    const target = candidates.find((r) => r.document.pages.includes(pageNumber)) ?? candidates[0];
+    const definition = findDocument(previous.documentType);
+    if (!target?.items || !definition) return { target: null, result: null };
+    const current = sideFromReviewed(target.items, target.document.readable);
+    return { target: target.document, result: compareDocuments(definition, previous.side, current) };
+  }, [previous, reviewed, pageNumber]);
+
   const highlights = useMemo(() => {
     if (!page || page.pageNumber !== pageNumber) return [];
-    return reviewed.flatMap(({ document, items }) =>
-      items ? highlightsFromReviewed(document.id, document.documentId, items, pageNumber) : [],
-    );
-  }, [reviewed, page, pageNumber]);
+    return reviewed.flatMap(({ document, items }) => {
+      // 比較している書類は、差分の色でハイライトする
+      if (comparison?.target?.id === document.id && comparison.result) {
+        return highlightsFromDiffs(document.id, comparison.result.fields, pageNumber);
+      }
+      return items ? highlightsFromReviewed(document.id, document.documentId, items, pageNumber) : [];
+    });
+  }, [reviewed, page, pageNumber, comparison]);
 
   const viewport = useMemo(() => page?.getViewport({ scale }) ?? null, [page, scale]);
   const toScreen = useMemo<ToScreen | null>(() => {
@@ -193,6 +225,59 @@ export function App() {
       scrollToHighlight.current = true;
       setPageNumber(item.page);
     }
+  }
+
+  function selectDiff(groupId: string, diff: FieldDiff) {
+    setSelected({ groupId, key: diff.key });
+    if (diff.current?.page !== undefined) {
+      scrollToHighlight.current = true;
+      setPageNumber(diff.current.page);
+    }
+  }
+
+  /** 前回の資料(PDFまたはJSON)を読み込む */
+  async function loadPrevious(file: File) {
+    setError(null);
+    setComparing(true);
+    try {
+      if (file.name.toLowerCase().endsWith(".json") || file.type === "application/json") {
+        const exported = parseExportedExtraction(await file.text());
+        setPrevious({ fileName: file.name, documentType: exported.documentType, side: sideFromExported(exported) });
+        return;
+      }
+      const doc = await openPdf(file);
+      try {
+        const documents = await analyzePdf(doc);
+        // 今回のPDFにある書類タイプと同じ書類を、前回の資料から選ぶ
+        const currentTypes = new Set(reviewed.map((r) => r.document.documentId));
+        const match =
+          documents.find((d) => d.extraction && currentTypes.has(d.documentId)) ?? documents.find((d) => d.extraction);
+        if (!match?.extraction) {
+          setError("前回の資料から、書類の種類を判定できませんでした。");
+          return;
+        }
+        setPrevious({
+          fileName: file.name,
+          documentType: match.documentId,
+          side: sideFromReviewed(reviewFields(match.extraction.fields, {}), match.readable),
+        });
+      } finally {
+        void doc.loadingTask.destroy();
+      }
+    } catch (e) {
+      console.error(e);
+      if (e instanceof ImportError) setError(`前回の資料を読み込めませんでした。${e.message}`);
+      else if (e instanceof OpenPdfError) setError(`前回の資料を読み込めませんでした。${openErrorMessage(e.kind)}`);
+      else setError("前回の資料を読み込めませんでした。");
+    } finally {
+      setComparing(false);
+    }
+  }
+
+  function handleCompareInput(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) void loadPrevious(file);
   }
 
   function selectFromHighlight(id: string | null) {
@@ -295,7 +380,13 @@ export function App() {
         <button type="button" className={opened ? "button" : "button button--primary"} onClick={openDialog}>
           PDFを開く
         </button>
-        <button type="button" className="button" disabled>
+        <button
+          type="button"
+          className="button"
+          disabled={!opened || comparing}
+          aria-pressed={previous !== null}
+          onClick={() => compareInputRef.current?.click()}
+        >
           前回と比較
         </button>
         {opened && <span className="mono file-name">{opened.fileName}</span>}
@@ -335,6 +426,15 @@ export function App() {
           tabIndex={-1}
           aria-hidden="true"
           onChange={handleFileInput}
+        />
+        <input
+          ref={compareInputRef}
+          type="file"
+          accept="application/pdf,.pdf,application/json,.json"
+          className="visually-hidden"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={handleCompareInput}
         />
       </header>
 
@@ -388,7 +488,33 @@ export function App() {
           )}
         </main>
         <ResultPanel opened={opened !== null}>
-          {current && (
+          {comparing && (
+            <p className="loading" role="status">
+              前回の資料を読み取っています…
+            </p>
+          )}
+          {previous && comparison && !comparison.target && (
+            <div className="result-panel__note" role="alert">
+              今回のPDFに「{titleOf(previous.documentType)}」がないため、前回の資料と比較できません。
+              <button type="button" className="link-button" onClick={() => setPrevious(null)}>
+                比較をやめる
+              </button>
+            </div>
+          )}
+          {previous && comparison?.target && comparison.result && (
+            <DiffList
+              documentTitle={titleOf(previous.documentType)}
+              previousName={previous.fileName}
+              currentName={opened?.fileName ?? ""}
+              result={comparison.result}
+              selectedKey={selected?.groupId === comparison.target.id ? selected.key : null}
+              onSelect={(diff) => {
+                if (comparison.target) selectDiff(comparison.target.id, diff);
+              }}
+              onClose={() => setPrevious(null)}
+            />
+          )}
+          {!previous && current && (
             <DocumentTypeCard
               pageNumber={pageNumber}
               guess={current.guess}
@@ -401,26 +527,27 @@ export function App() {
               ページを読み取っています…
             </p>
           )}
-          {reviewed.map(({ document, items }) =>
-            items ? (
-              <ResultList
-                key={document.id}
-                title={titleOf(document.documentId)}
-                documentId={document.documentId}
-                pages={document.pages}
-                fileName={opened?.fileName ?? ""}
-                items={items}
-                selectedKey={selected?.groupId === document.id ? selected.key : null}
-                onSelect={(item) => selectFromList(document.id, item)}
-                onReview={(action) => review(document.id, action)}
-                onPickRange={(key) => startPickRange({ groupId: document.id, key })}
-              />
-            ) : (
-              <p key={document.id} className="result-panel__note">
-                「{titleOf(document.documentId)}」の抽出ルールはまだありません。
-              </p>
-            ),
-          )}
+          {!previous &&
+            reviewed.map(({ document, items }) =>
+              items ? (
+                <ResultList
+                  key={document.id}
+                  title={titleOf(document.documentId)}
+                  documentId={document.documentId}
+                  pages={document.pages}
+                  fileName={opened?.fileName ?? ""}
+                  items={items}
+                  selectedKey={selected?.groupId === document.id ? selected.key : null}
+                  onSelect={(item) => selectFromList(document.id, item)}
+                  onReview={(action) => review(document.id, action)}
+                  onPickRange={(key) => startPickRange({ groupId: document.id, key })}
+                />
+              ) : (
+                <p key={document.id} className="result-panel__note">
+                  「{titleOf(document.documentId)}」の抽出ルールはまだありません。
+                </p>
+              ),
+            )}
           {results.complete && reviewed.length === 0 && (
             <p className="result-panel__note">
               書類の種類が分からないため、項目を抽出していません。「書類の種類を変える」から選んでください。

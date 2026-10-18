@@ -12,6 +12,8 @@ export interface FieldDefinition {
   label: string;
   type: FieldType;
   required: boolean;
+  /** 差分の一覧で上に出し、目立たせる項目か(docs/extraction-fields.md の「差分で重視」)。省略時は "normal" */
+  diffPriority?: "high" | "normal";
   /** list 型の、1行分の項目 */
   items?: FieldDefinition[];
 }
@@ -38,11 +40,17 @@ function isFieldType(value: unknown): value is FieldType {
 
 function parseField(value: unknown, where: string): FieldDefinition {
   if (!isRecord(value)) throw new Error(`${where}: 項目の定義がオブジェクトではありません`);
-  const { key, label, type, required, items } = value;
+  const { key, label, type, required, items, diffPriority } = value;
   if (typeof key !== "string") throw new Error(`${where}: key がありません`);
   if (!isFieldType(type)) throw new Error(`${where}.${key}: 不明な型 ${String(type)}`);
   if (typeof required !== "boolean") throw new Error(`${where}.${key}: required がありません`);
-  const field: FieldDefinition = { key, label: typeof label === "string" ? label : key, type, required };
+  const field: FieldDefinition = {
+    key,
+    label: typeof label === "string" ? label : key,
+    type,
+    required,
+    diffPriority: diffPriority === "high" ? "high" : "normal",
+  };
   if (type === "list") {
     if (!Array.isArray(items)) throw new Error(`${where}.${key}: list 型には items が必要です`);
     field.items = items.map((item, i) => parseField(item, `${where}.${key}.items[${i}]`));

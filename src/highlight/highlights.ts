@@ -1,4 +1,6 @@
+import type { FieldDiff } from "../diff/compare-fields.ts";
 import type { ExtractionResult, FieldResult } from "../extract/engine.ts";
+import { formatValue } from "../results/format.ts";
 import type { ReviewedField } from "../results/review.ts";
 import { normalizeForDisplay } from "../text/normalize.ts";
 import type { Rect } from "../text/types.ts";
@@ -71,6 +73,22 @@ export function highlightsFromReviewed(
       }),
     );
   return highlightsFromExtraction({ documentId, fields }, page).map((h) => ({ ...h, id: `${groupId}:${h.id}` }));
+}
+
+/**
+ * 前回との差分を、今回のPDF上のハイライトにする。一致した項目と、今回の値がない項目(削除)は描かない
+ */
+export function highlightsFromDiffs(groupId: string, diffs: readonly FieldDiff[], page: number): Highlight[] {
+  return diffs
+    .filter((d) => d.status !== "same" && d.current?.page === page && (d.current.bbox?.length ?? 0) > 0)
+    .map((d) => ({
+      id: `${groupId}:${d.key}`,
+      page,
+      rects: d.current?.bbox ?? [],
+      kind: { type: "diff", status: d.status },
+      label: `${d.label}: ${d.previous ? formatValue(d.type, d.previous.value) : "(なし)"} → ${d.current ? formatValue(d.type, d.current.value) : "(なし)"}`,
+      lowConfidence: d.needsCheck,
+    }));
 }
 
 /**
