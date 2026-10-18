@@ -143,11 +143,22 @@ function compareList(
 ): FieldDiff[] {
   const prevRows = Array.isArray(previous?.value) ? previous.value : [];
   const curRows = Array.isArray(current?.value) ? current.value : [];
-  const keys = [...new Set([...prevRows.map(rowKey), ...curRows.map(rowKey)])];
+  const uniqueKey = (rows: readonly unknown[]) => {
+    const counts = new Map<string, number>();
+    return rows.map((row) => {
+      const key = rowKey(row);
+      const occurrence = (counts.get(key) ?? 0) + 1;
+      counts.set(key, occurrence);
+      return occurrence === 1 ? key : `${key}#${occurrence}`;
+    });
+  };
+  const prevKeys = uniqueKey(prevRows);
+  const curKeys = uniqueKey(curRows);
+  const keys = [...new Set([...prevKeys, ...curKeys])];
   if (keys.length === 0) return [compareScalar(field, undefined, undefined, sides)];
   return keys.map((key) => {
-    const p = prevRows.find((r) => rowKey(r) === key);
-    const c = curRows.find((r) => rowKey(r) === key);
+    const p = prevRows.find((row, index) => prevKeys[index] === key);
+    const c = curRows.find((row, index) => curKeys[index] === key);
     const side = (row: unknown, from: SideValue | undefined): SideValue | undefined =>
       row === undefined || !from ? undefined : { ...from, value: [row], rawText: undefined };
     const rowField: FieldDefinition = { ...field, key: `${field.key}[${key}]`, label: `${field.label}(${rowLabel(p ?? c)})` };

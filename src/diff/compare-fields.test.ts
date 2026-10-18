@@ -144,4 +144,20 @@ describe("表(他の借入)の比較", () => {
     ]);
     expect(rows[0]?.notes).toEqual(["変わった欄: 借入残高"]);
   });
+
+  it("借入先と借入目的が同じ行が複数あるときも、各行を区別して比較する", () => {
+    const duplicateLoan1 = { lender: "見本ファイナンス", purpose: "自動車ローン", balance: 1_200_000, annualRepayment: 360_000 };
+    const duplicateLoan2 = { lender: "見本ファイナンス", purpose: "自動車ローン", balance: 900_000, annualRepayment: 300_000 };
+    const result = compareDocuments(
+      homeLoan,
+      side({ otherDebts: v([duplicateLoan1, duplicateLoan2]) }),
+      side({ otherDebts: v([{ ...duplicateLoan1, balance: 1_100_000 }, { ...duplicateLoan2, annualRepayment: 250_000 }]) }),
+    );
+    const rows = result.fields.filter((f) => f.key.startsWith("otherDebts["));
+    expect(rows.map((r) => [r.label, r.status])).toEqual([
+      ["他の借入(見本ファイナンス・自動車ローン)", "changed"],
+      ["他の借入(見本ファイナンス・自動車ローン)", "changed"],
+    ]);
+    expect(rows).toHaveLength(2);
+  });
 });
