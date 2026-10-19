@@ -172,3 +172,43 @@ async function degradeImage(args: {
   ctx.putImageData(data, 0, 0);
   return canvas.toDataURL("image/jpeg", profile.jpegQuality);
 }
+
+/** 様式の画像と、その上に重ねる値の文字(電子交付の源泉徴収票のようなPDFを作るため) */
+export interface OverlayPage {
+  /** 値を隠して描いた様式の画像 */
+  jpeg: Uint8Array;
+  /** 値の文字と、その位置(CSSピクセル、ページ左上が原点) */
+  values: TextBox[];
+  /** ページの大きさ(CSSピクセル) */
+  width: number;
+  height: number;
+}
+
+/** A4横の HTML を、値(class="v" の要素)を隠した画像と、値の文字の位置に分けて取り出す */
+export async function renderOverlay(browser: Browser, html: string, dpi: number): Promise<OverlayPage> {
+  const width = Math.round(A4_CSS_PX.height);
+  const height = Math.round(A4_CSS_PX.width);
+  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: dpi / 96 });
+  try {
+    await context.addInitScript({ content: "globalThis.__name = (fn) => fn;" });
+    const page = await context.newPage();
+    await page.setContent(html, { waitUntil: "load" });
+    await waitForFonts(page);
+    const values = await page.evaluate(() =>
+      [...document.querySelectorAll(".v")].flatMap((element) => {
+        const text = (element.textContent ?? "").trim();
+        if (!text) return [];
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const rect = range.getBoundingClientRect();
+        return [{ text, x: rect.left, y: rect.top, width: rect.width, height: rect.height }];
+      }),
+    );
+    await page.addStyleTag({ content: ".v { visibility: hidden !important; }" });
+    await stableScreenshot(page);
+    const jpeg = await page.screenshot({ type: "jpeg", quality: 80 });
+    return { jpeg: new Uint8Array(jpeg), values, width, height };
+  } finally {
+    await context.close();
+  }
+}

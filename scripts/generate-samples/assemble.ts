@@ -9,7 +9,7 @@ import {
   setTextRenderingMode,
   TextRenderingMode,
 } from "pdf-lib";
-import { A4_CSS_PX, type ScannedPage } from "./render.ts";
+import { A4_CSS_PX, type OverlayPage, type ScannedPage } from "./render.ts";
 
 // pdf-lib でスキャンPDF・透明テキスト付きPDF・混在PDFを組み立てる。
 
@@ -65,6 +65,31 @@ export async function buildSearchablePdf(scan: ScannedPage, skewDegrees: number)
     });
   }
   page.pushOperators(popGraphicsState());
+  return doc.save();
+}
+
+/**
+ * 様式の画像の上に、値を見える文字で重ねたPDF(電子交付の源泉徴収票の形)。
+ * 欄の名前は画像にしかなく、PDF の文字には値だけが入る
+ */
+export async function buildOverlayPdf(overlay: OverlayPage): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
+  const font = await doc.embedFont(await readFile(JAPANESE_FONT), { subset: true, customName: "ArialUnicodeMS" });
+  const image = await doc.embedJpg(overlay.jpeg);
+  const width = overlay.width * PT_PER_CSS_PX;
+  const height = overlay.height * PT_PER_CSS_PX;
+  const page = doc.addPage([width, height]);
+  page.drawImage(image, { x: 0, y: 0, width, height });
+  for (const box of overlay.values) {
+    const size = box.height * PT_PER_CSS_PX * 0.8;
+    page.drawText(box.text, {
+      x: box.x * PT_PER_CSS_PX,
+      y: height - (box.y + box.height * 0.85) * PT_PER_CSS_PX,
+      size,
+      font,
+    });
+  }
   return doc.save();
 }
 

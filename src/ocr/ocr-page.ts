@@ -1,4 +1,4 @@
-import type { TextSegment } from "../text/types.ts";
+import type { Rect, TextSegment } from "../text/types.ts";
 import { type GrayImage, preprocess, toGray, unrotatePoint } from "./preprocess.ts";
 import { type OcrLine, ocrLinesToSegments, type PixelToPdf } from "./segments.ts";
 
@@ -26,6 +26,8 @@ export interface OcrReading {
   segments: TextSegment[];
   /** 補正したスキャンの傾き(度) */
   skewDegrees: number;
+  /** 画像の中の、表の縦の罫線(PDFページ座標)。同じ枠の中にある文字かどうかを調べるのに使う */
+  separators: Rect[];
   /** 前処理と文字認識にかかった時間(ミリ秒) */
   elapsedMs: number;
 }
@@ -39,9 +41,19 @@ export async function ocrRenderedPage(page: RenderedPage, recognize: Recognize):
     const [ox, oy] = unrotatePoint(x, y, -skewDegrees, image.width, image.height);
     return page.toPdf(ox, oy);
   };
+  const separators = verticalLines.map((line): Rect => {
+    const corners = [toPdf(line.x0, line.y0), toPdf(line.x1, line.y0), toPdf(line.x0, line.y1), toPdf(line.x1, line.y1)];
+    return {
+      x0: Math.min(...corners.map((c) => c[0])),
+      y0: Math.min(...corners.map((c) => c[1])),
+      x1: Math.max(...corners.map((c) => c[0])),
+      y1: Math.max(...corners.map((c) => c[1])),
+    };
+  });
   return {
     segments: ocrLinesToSegments(lines, toPdf, verticalLines),
     skewDegrees,
+    separators,
     elapsedMs: Math.round(performance.now() - started),
   };
 }

@@ -105,6 +105,15 @@
     "expected": "rental-application/expected.json"
   },
   {
+    "file": "withholding-slip/overlay.pdf",
+    "document": "源泉徴収票(令和7年分・電子交付の様式)",
+    "pages": [
+      "overlay"
+    ],
+    "expected": "withholding-slip/expected.json",
+    "note": "様式(罫線・欄の名前)が画像で、値だけが文字として重なったPDF。金額は空白区切りで、先頭の桁などが離れている"
+  },
+  {
     "file": "pdf-kinds/mixed.pdf",
     "document": "確定申告書 第一表(令和7年分) + 源泉徴収票(令和7年分)",
     "pages": [

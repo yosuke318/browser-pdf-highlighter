@@ -15,6 +15,17 @@ const RECIPIENT = { start: ["支払を受ける者", "給与所得の源泉徴�
 /** 下の枠(支払者 = 勤務先) */
 const PAYER = { start: ["支払者", "個人番号又は法人番号"] };
 
+/**
+ * 金額の行の見出し(左から順)。様式で並びが決まっているので、OCR で読めない欄の名前があっても、
+ * 読めた見出しを目印に、下の行の金額を左から順に割り当てられる(電子交付のPDFは欄の名前が小さな画像のため)
+ */
+const AMOUNT_HEADERS = [
+  ["支払金額"],
+  ["給与所得控除後の金額", "給与所得控除後の金額(調整控除後)"],
+  ["所得控除の額の合計額"],
+  ["源泉徴収税額"],
+] as const;
+
 export default defineDocument({
   id: "withholding-slip",
   fields: {
@@ -40,6 +51,16 @@ export default defineDocument({
 
     employerName: [
       { id: "payer-name", kind: "label", labels: ["氏名又は名称"], direction: "right", section: PAYER, reject: /^\(電話\)/ },
+      // 欄の名前が読めないとき(電子交付のPDFの小さな画像の欄の名前など)は、会社の形の名前を探す。
+      // 源泉徴収票で会社名が書かれるのは、ふつう支払者(勤務先)の欄だけ
+      {
+        id: "payer-name-company",
+        kind: "pattern",
+        pdfTextOnly: true,
+        perCell: true,
+        pattern:
+          /((?:株式会社|有限会社|合同会社|合資会社|合名会社|\((?:株|有|同)\))[^\s()（）:：]+|[^\s()（）:：]+(?:株式会社|有限会社|合同会社|合資会社|合名会社))/,
+      },
     ],
     // ラベルが「住所(居所)」「又は所在地」の2行に分かれていることがある
     employerAddress: [
@@ -56,7 +77,10 @@ export default defineDocument({
     // 書かれた前の勤務先の金額を取らないため。
     // 支払金額と源泉徴収税額の欄には、左上に「内」と小さな文字で未払いの金額(未徴収の税額)が入ることがあるので、
     // 文字が大きい方(本来の金額)を選ぶ
-    paymentAmount: [{ id: "payment-amount", kind: "label", labels: ["支払金額"], direction: "below", prefer: "largest" }],
+    paymentAmount: [
+      { id: "payment-amount", kind: "label", labels: ["支払金額"], direction: "below", prefer: "largest" },
+      { id: "payment-amount-column", kind: "column", headers: AMOUNT_HEADERS, index: 0 },
+    ],
     salaryIncomeAfterDeduction: [
       {
         id: "salary-income",
@@ -64,9 +88,16 @@ export default defineDocument({
         labels: ["給与所得控除後の金額", "給与所得控除後の金額(調整控除後)"],
         direction: "below",
       },
+      { id: "salary-income-column", kind: "column", headers: AMOUNT_HEADERS, index: 1 },
     ],
-    totalDeductions: [{ id: "total-deductions", kind: "label", labels: ["所得控除の額の合計額"], direction: "below" }],
-    withholdingTax: [{ id: "withholding-tax", kind: "label", labels: ["源泉徴収税額"], direction: "below", prefer: "largest" }],
+    totalDeductions: [
+      { id: "total-deductions", kind: "label", labels: ["所得控除の額の合計額"], direction: "below" },
+      { id: "total-deductions-column", kind: "column", headers: AMOUNT_HEADERS, index: 2 },
+    ],
+    withholdingTax: [
+      { id: "withholding-tax", kind: "label", labels: ["源泉徴収税額"], direction: "below", prefer: "largest" },
+      { id: "withholding-tax-column", kind: "column", headers: AMOUNT_HEADERS, index: 3 },
+    ],
     socialInsurance: [{ id: "social-insurance", kind: "label", labels: ["社会保険料等の金額"], direction: "below" }],
   },
 });

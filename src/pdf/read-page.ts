@@ -39,7 +39,9 @@ export interface PageReading {
  */
 export function pageSegments(reading: PageReading, method: ReadMethod): TextSegment[] {
   if (method === "pdf") return reading.pdfSegments;
-  if (reading.classification.kind === "overlay") return mergeOverlay(reading.pdfSegments, reading.ocr?.segments ?? []);
+  if (reading.classification.kind === "overlay") {
+    return mergeOverlay(reading.pdfSegments, reading.ocr?.segments ?? [], reading.ocr?.separators ?? []);
+  }
   return reading.ocr?.segments ?? [];
 }
 

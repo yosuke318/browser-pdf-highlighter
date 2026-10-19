@@ -35,6 +35,12 @@ interface RuleBase {
   reject?: RegExp;
   /** 値から取り除く部分(「山田太郎様」の「様」など)。取り出したままの文字列(rawText)には残す */
   remove?: RegExp;
+  /**
+   * PDF に入っている文字だけを対象にする(OCR で読んだ文字は使わない)。
+   * 画像の様式に値の文字を重ねたPDFでは、値はすべて PDF の文字なので、OCR が読み違えた欄の名前が
+   * 値の前後にくっつくのを避けられる
+   */
+  pdfTextOnly?: boolean;
 }
 
 export type Direction = "right" | "below";
@@ -81,6 +87,11 @@ export interface PatternRule extends RuleBase {
   kind: "pattern";
   /** 値の部分を1番目のグループ、または value という名前のグループにする */
   pattern: RegExp;
+  /**
+   * 行ではなく、セルごとに探す。同じ行の別のセルの文字が値の続きにくっつかないようにする
+   * (正規化した行の文字列は空白を除いてつなげるので、セルの境目が分からなくなるため)
+   */
+  perCell?: boolean;
 }
 
 /** ページ上の範囲にある文字を、値として取る */
@@ -102,6 +113,22 @@ export interface TableRule extends RuleBase {
   maxRows?: number;
 }
 
+/**
+ * 見出しの行に欄の名前が左から決まった順に並び、そのすぐ下の行に値が並ぶ表から、並び順で値を取る。
+ * 源泉徴収票の金額の行(支払金額・給与所得控除後の金額・所得控除の額の合計額・源泉徴収税額)のように
+ * 欄の並びが様式で決まっている表で、欄の名前の一部しか読めない(OCR で読めない小さな欄の名前がある)ときに使う。
+ * 見出しのうちどれか1つが読めれば、それを目印にして、下の行の値を左から順に欄に割り当てる
+ */
+export interface ColumnRule extends RuleBase {
+  kind: "column";
+  /** 見出しの行の欄の名前(表記ゆれ)を、左から順に並べたもの */
+  headers: readonly (readonly string[])[];
+  /** この項目の値がある欄の位置(headers の何番目か。0 始まり) */
+  index: number;
+  /** 見出しから値の行までの最大の距離(見出しの文字の高さの何倍か)。既定は 5 */
+  maxDistance?: number;
+}
+
 /** ほかの項目の値から計算する(住民税決定通知書の対象年 = 年度 - 1 など) */
 export interface DeriveRule {
   kind: "derive";
@@ -111,7 +138,7 @@ export interface DeriveRule {
   compute: (value: unknown) => unknown;
 }
 
-export type Rule = LabelRule | PatternRule | RegionRule | TableRule | DeriveRule;
+export type Rule = LabelRule | PatternRule | RegionRule | TableRule | ColumnRule | DeriveRule;
 
 /** 1つの書類タイプの定義 */
 export interface DocumentRules {
