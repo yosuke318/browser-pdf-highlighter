@@ -196,6 +196,27 @@ function toCandidate(
 
 const whole = (segment: TextSegment) => ({ raw: segment.text, boxes: [segment.bbox], segment });
 
+/** 1〜3桁の数字だけのセル */
+const LONE_DIGITS = /^\d{1,3}$/;
+/** 3桁ずつ区切った数字のセル(「800 000」「800,000」「800」) */
+const DIGIT_GROUPS = /^\d{3}(?:[ ,]\d{3})*$/;
+/** 金額の続きとみなす、セルとセルの間の最大の距離(文字の高さの何倍か) */
+const MAX_AMOUNT_GAP = 2;
+
+/**
+ * 金額が、先頭の桁と残りの桁で別々のセルに分かれているか(「5」「800 000」)。
+ * 源泉徴収票の電子交付のPDFには、様式の「千」「円」の区切りに合わせて数字を置くため、
+ * 先頭の桁だけが離れて別の文字列になっているものがある。
+ * 実物では、同じ金額の中の間は文字の高さの1〜1.6倍、別の金額との間は2倍以上だった
+ */
+function splitAmount(cell: TextSegment, next: TextSegment | undefined): boolean {
+  if (!next) return false;
+  const head = cell.text.normalize("NFKC").trim();
+  const rest = next.text.normalize("NFKC").trim();
+  if (!LONE_DIGITS.test(head) || !DIGIT_GROUPS.test(rest)) return false;
+  return next.bbox.x0 - cell.bbox.x1 <= MAX_AMOUNT_GAP * height(cell.bbox);
+}
+
 // ---- ルールの種類ごとの処理 ----
 
 /** 同じ行で、start から右へ続くセル(間が広すぎないもの) */
@@ -306,6 +327,8 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
       for (const { s, gap } of starts) {
         const row = rowFrom(s, others, maxCells);
         for (let k = 1; k <= row.length; k++) {
+          // 先頭の桁だけのセル(「5」「800 000」の「5」)で金額にしない。続きのセルも含める
+          if (type === "money" && splitAmount(row[k - 1] as TextSegment, row[k])) continue;
           // 金額の直後に単位だけのセル(「420」「万円」)があれば、単位も含めて変換する
           const next = row[k];
           const withUnit = type === "money" && next && UNIT_ONLY.test(norm(next).text) ? k + 1 : k;

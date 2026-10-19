@@ -31,7 +31,7 @@ describe("判別の規則", () => {
     ["画像がページを覆い、文字が透明", { imageCoverage: 0.95, textChars: 300, allTextInvisible: true }, "searchable"],
     ["文字は十分にあるが、正常な文字が少ない", { textChars: 100, normalCharRatio: 0.3 }, "garbled"],
     ["文字も画像もほとんどない", { textChars: 3, imageCoverage: 0.1 }, "other"],
-    ["画像の上に見える文字が十分にある(画像入りの書類)", { imageCoverage: 0.95, textChars: 300 }, "text"],
+    ["画像の上に見える文字が十分にある(様式が画像で値が文字の書類)", { imageCoverage: 0.95, textChars: 300 }, "overlay"],
   ])("%s → %s", (_, stats, kind) => {
     expect(classifyPage({ ...base, ...stats }).kind).toBe(kind);
   });
@@ -63,7 +63,9 @@ describe("テスト用PDFの判別", () => {
         { text: lines, image: "full" },
       ]),
     );
-    expect(results.map((r) => r.kind)).toEqual(["text", "scanned", "searchable", "garbled", "other", "text"]);
+    expect(results.map((r) => r.kind)).toEqual(["text", "scanned", "searchable", "garbled", "other", "overlay"]);
+    // 画像の上に文字を重ねたページで、PDF の文字から書類の種類が分からなければ、欄の名前を OCR で読む
+    expect(results[5]?.method).toBe("ocr");
   });
 
   it("画像の割合は、画像が描かれた範囲から求める", async () => {

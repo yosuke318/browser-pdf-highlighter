@@ -7,6 +7,7 @@ const KIND_LABELS: Record<PageKind, string> = {
   text: "テキストPDF",
   scanned: "スキャンPDF",
   searchable: "透明テキスト付きPDF",
+  overlay: "画像の様式に文字を重ねたPDF",
   garbled: "文字化けしたPDF",
   other: "文字データなし",
 };
@@ -16,6 +17,7 @@ const OCR_REASONS: Record<PageKind, string> = {
   text: "",
   scanned: "スキャンPDFのため",
   searchable: "透明テキスト付きPDFのため(埋め込まれた文字は精度が分からないので使いません)",
+  overlay: "欄の名前が画像になっているため(値はPDFに入っている文字を使います)",
   garbled: "PDFの文字が文字化けしているため",
   other: "文字データがほとんどないため",
 };
