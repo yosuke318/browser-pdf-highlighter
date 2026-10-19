@@ -10,7 +10,7 @@ import { getDocument, OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
 const SAMPLES_DIR = join(import.meta.dirname, "../../samples");
 const PDFJS_DIR = dirname(createRequire(import.meta.url).resolve("pdfjs-dist/package.json"));
 
-type PageKind = "text" | "scanned" | "searchable";
+type PageKind = "text" | "scanned" | "searchable" | "overlay";
 
 interface ManifestEntry {
   file: string;
@@ -69,6 +69,7 @@ function kindOf(r: PageReport): PageKind | "unknown" {
   if (r.images === 0 && r.chars > 0) return "text";
   if (r.images > 0 && r.chars === 0) return "scanned";
   if (r.images > 0 && r.invisibleText) return "searchable";
+  if (r.images > 0 && r.chars > 0) return "overlay";
   return "unknown";
 }
 

@@ -86,5 +86,11 @@
       "scanned(ocr)"
     ],
     "ocrOnly": true
+  },
+  "withholding-slip/overlay.pdf": {
+    "pages": [
+      "overlay(ocr)"
+    ],
+    "ocrOnly": true
   }
 }

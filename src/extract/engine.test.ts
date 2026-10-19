@@ -388,3 +388,79 @@ describe("nearlySame(OCR の読み違いを許したラベルの一致)", () => 
     expect(nearlySame(text, label)).toBe(expected);
   });
 });
+
+describe("先頭の桁が離れて置かれた金額(電子交付の源泉徴収票)", () => {
+  it("「5」と「800 000」が近ければ、1つの金額として取る", () => {
+    const { field } = run({ paymentAmount: [{ kind: "label", labels: ["支払金額"], direction: "below" }] }, [
+      page([cell("支払金額", 150, 700), cell("5", 150, 680), cell("800 000", 175, 680)]),
+    ]);
+    expect(field("paymentAmount")).toMatchObject({ found: true, value: 5_800_000, rawText: "5 800 000" });
+  });
+
+  it("離れすぎていれば、つなげない(隣の欄の金額とつなげない)", () => {
+    const { field } = run({ paymentAmount: [{ kind: "label", labels: ["支払金額"], direction: "below" }] }, [
+      page([cell("支払金額", 150, 700), cell("5", 150, 680), cell("800 000", 200, 680)]),
+    ]);
+    expect(field("paymentAmount")?.value).toBe(5);
+  });
+});
+
+describe("欄の並び順で値を取る(column)", () => {
+  const headers = [["支払金額"], ["給与所得控除後の金額"], ["所得控除の額の合計額"], ["源泉徴収税額"]] as const;
+  const amounts = [cell("5800000", 100, 680), cell("4200000", 200, 680), cell("1590000", 300, 680), cell("166900", 400, 680)];
+
+  it("読めた見出しの1つを目印に、下の行の値を左から順に割り当てる", () => {
+    const { field } = run(
+      {
+        paymentAmount: [{ kind: "column", headers, index: 0 }],
+        salaryIncomeAfterDeduction: [{ kind: "column", headers, index: 1 }],
+      },
+      // 読めた見出しは「源泉徴収税額」だけ(ほかは OCR で読めなかった)
+      [page([cell("給料・賞与", 0, 680), cell("源泉徴収税額", 400, 700), ...amounts])],
+    );
+    expect(field("paymentAmount")?.value).toBe(5_800_000);
+    expect(field("salaryIncomeAfterDeduction")?.value).toBe(4_200_000);
+  });
+
+  it("OCR の文字なら、1文字の読み違いのある見出しも目印にする", () => {
+    const { field } = run({ paymentAmount: [{ kind: "column", headers, index: 0 }] }, [
+      page([cell("源泉徴収税額", 400, 700, 0.9), ...amounts]),
+    ]);
+    expect(field("paymentAmount")?.value).toBe(5_800_000);
+  });
+
+  it("値の数が欄の数と違うときは、目印の見出しの真下の値を基準にする", () => {
+    const { field } = run({ totalDeductions: [{ kind: "column", headers, index: 2 }] }, [
+      // 支払金額の値が読めていない
+      page([cell("源泉徴収税額", 400, 700), ...amounts.slice(1)]),
+    ]);
+    expect(field("totalDeductions")?.value).toBe(1_590_000);
+  });
+
+  it("見出しが1つも読めなければ、取らない", () => {
+    const { field } = run({ paymentAmount: [{ kind: "column", headers, index: 0 }] }, [page(amounts)]);
+    expect(field("paymentAmount")?.found).toBe(false);
+  });
+});
+
+describe("パターンの探し方の指定", () => {
+  const company = /((?:株式会社)[^\s()]+)/;
+
+  it("perCell: 同じ行の別のセルの文字を、値の続きにくっつけない", () => {
+    const cells = [cell("株式会社サンプル商事", 100, 300), cell("0000001111", 300, 300)];
+    expect(run({ employerName: [{ kind: "pattern", pattern: company }] }, [page(cells)]).field("employerName")?.value).toBe(
+      "株式会社サンプル商事 0000001111",
+    );
+    expect(
+      run({ employerName: [{ kind: "pattern", pattern: company, perCell: true }] }, [page(cells)]).field("employerName")?.value,
+    ).toBe("株式会社サンプル商事");
+  });
+
+  it("pdfTextOnly: OCR で読んだ文字は使わない", () => {
+    const cells = [cell("株式会社ミホン", 100, 400, 0.9), cell("株式会社サンプル商事", 100, 300)];
+    const { field } = run({ employerName: [{ kind: "pattern", pattern: company, pdfTextOnly: true, perCell: true }] }, [
+      page(cells),
+    ]);
+    expect(field("employerName")?.value).toBe("株式会社サンプル商事");
+  });
+});

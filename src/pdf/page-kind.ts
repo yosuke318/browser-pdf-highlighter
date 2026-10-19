@@ -20,10 +20,13 @@ export type PageKindSettings = { [K in keyof typeof PAGE_KIND_SETTINGS]: number 
  * - text: テキストPDF(pdf.js で取り出した文字をそのまま使う)
  * - scanned: スキャンPDF(画像だけで文字データがない)
  * - searchable: 透明テキスト付きPDF(サーチャブルPDF。画像の上に見えない文字がある)
+ * - overlay: 画像の上に見える文字を重ねたPDF。様式(罫線・欄の名前)が画像で、値だけが文字になっている
+ *   電子交付の源泉徴収票などがこの形。欄の名前を OCR で読み、値は PDF の文字を使う
+ *   (PDF の文字だけで書類の種類が分かるときは、テキストPDFと同じく PDF の文字だけを使う。read-page.ts)
  * - garbled: 文字化けしたテキストPDF
  * - other: 上のどれにも当てはまらないページ(白紙に近いページなど)
  */
-export type PageKind = "text" | "scanned" | "searchable" | "garbled" | "other";
+export type PageKind = "text" | "scanned" | "searchable" | "overlay" | "garbled" | "other";
 
 /** 文字をどの方法で読み取るか */
 export type ReadMethod = "pdf" | "ocr";
@@ -53,6 +56,7 @@ export function classifyPage(stats: PageStats, settings: PageKindSettings = PAGE
   if (coveredByImage && stats.textChars > 0 && stats.allTextInvisible) kind = "searchable";
   else if (coveredByImage && !hasText) kind = "scanned";
   else if (hasText && stats.normalCharRatio < settings.minNormalCharRatio) kind = "garbled";
+  else if (coveredByImage && hasText) kind = "overlay";
   else if (hasText) kind = "text";
   else kind = "other";
   return { kind, method: kind === "text" ? "pdf" : "ocr", stats };

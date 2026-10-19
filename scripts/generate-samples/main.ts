@@ -5,15 +5,16 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
-import { buildScanPdf, buildSearchablePdf, concatPdfs, makeReproducible } from "./assemble.ts";
+import { buildOverlayPdf, buildScanPdf, buildSearchablePdf, concatPdfs, makeReproducible } from "./assemble.ts";
 import type { SampleDocument } from "./document.ts";
-import { renderScan, renderTextPdf } from "./render.ts";
+import { renderOverlay, renderScan, renderTextPdf } from "./render.ts";
 import { homeLoanApplication } from "./templates/home-loan-application.ts";
 import { rentalApplication } from "./templates/rental-application.ts";
 import { residentTaxNotice } from "./templates/resident-tax-notice.ts";
 import { taxCertificate } from "./templates/tax-certificate.ts";
 import { taxReturn } from "./templates/tax-return.ts";
 import { withholdingSlip } from "./templates/withholding-slip.ts";
+import { withholdingSlipOverlay } from "./templates/withholding-slip-overlay.ts";
 
 const OUT_DIR = join(import.meta.dirname, "../../samples");
 
@@ -26,8 +27,8 @@ const documents: SampleDocument[] = [
   rentalApplication,
 ];
 
-/** 各ページがテキストPDFかスキャンPDFか(自動判別のテストの正解) */
-type PageKind = "text" | "scanned" | "searchable";
+/** 各ページの種類(自動判別のテストの正解) */
+type PageKind = "text" | "scanned" | "searchable" | "overlay";
 
 interface ManifestEntry {
   file: string;
@@ -86,6 +87,20 @@ async function main(): Promise<void> {
       }
       console.log(`生成: ${doc.title}`);
     }
+
+    // 電子交付の源泉徴収票の様式(様式は画像、値だけが文字)
+    const overlay = await makeReproducible(
+      await buildOverlayPdf(await renderOverlay(browser, withholdingSlipOverlay.html(), withholdingSlipOverlay.dpi)),
+    );
+    await writeFile(join(OUT_DIR, withholdingSlipOverlay.file), overlay);
+    manifest.push({
+      file: withholdingSlipOverlay.file,
+      document: withholdingSlipOverlay.title,
+      pages: ["overlay"],
+      expected: `${withholdingSlipOverlay.documentId}/expected.json`,
+      note: "様式(罫線・欄の名前)が画像で、値だけが文字として重なったPDF。金額は空白区切りで、先頭の桁などが離れている",
+    });
+    console.log(`生成: ${withholdingSlipOverlay.title}`);
 
     // 作成コーナーで作った確定申告書(テキストPDF)に、スキャンした源泉徴収票を添付した想定
     const taxReturnTextPdf = textPdfs.get(taxReturn.id);

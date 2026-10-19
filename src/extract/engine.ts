@@ -3,7 +3,17 @@ import { groupLines } from "../text/lines.ts";
 import { type NormalizedText, normalizeText } from "../text/normalize.ts";
 import type { Rect, TextSegment } from "../text/types.ts";
 import { convertValue } from "./convert.ts";
-import type { DocumentRules, LabelRule, PatternRule, RegionRule, RelativeRect, Rule, Section, TableRule } from "./rules.ts";
+import type {
+  ColumnRule,
+  DocumentRules,
+  LabelRule,
+  PatternRule,
+  RegionRule,
+  RelativeRect,
+  Rule,
+  Section,
+  TableRule,
+} from "./rules.ts";
 
 // 抽出ルールの実行。書類定義(DocumentRules)のルールを、ページから取り出した文字(TextSegment)に当てはめ、
 // 項目ごとに値と、その値がPDF上のどこにあったか(ページ・長方形)を返す。
@@ -133,8 +143,8 @@ function inSection(segments: TextSegment[], section: Section): TextSegment[] {
   return below.filter((s) => !end || centerY(s.bbox) > end.bbox.y1);
 }
 
-function scope(page: ExtractionPage, rule: { section?: Section; region?: RelativeRect }): TextSegment[] {
-  let segments = page.segments;
+function scope(page: ExtractionPage, rule: { section?: Section; region?: RelativeRect; pdfTextOnly?: boolean }): TextSegment[] {
+  let segments = rule.pdfTextOnly ? page.segments.filter((s) => s.source === "pdf") : page.segments;
   if (rule.region) {
     const region = rule.region;
     segments = segments.filter((s) => inRelativeRect(s, region, page.view));
@@ -195,6 +205,27 @@ function toCandidate(
 }
 
 const whole = (segment: TextSegment) => ({ raw: segment.text, boxes: [segment.bbox], segment });
+
+/** 1〜3桁の数字だけのセル */
+const LONE_DIGITS = /^\d{1,3}$/;
+/** 3桁ずつ区切った数字のセル(「800 000」「800,000」「800」) */
+const DIGIT_GROUPS = /^\d{3}(?:[ ,]\d{3})*$/;
+/** 金額の続きとみなす、セルとセルの間の最大の距離(文字の高さの何倍か) */
+const MAX_AMOUNT_GAP = 2;
+
+/**
+ * 金額が、先頭の桁と残りの桁で別々のセルに分かれているか(「5」「800 000」)。
+ * 源泉徴収票の電子交付のPDFには、様式の「千」「円」の区切りに合わせて数字を置くため、
+ * 先頭の桁だけが離れて別の文字列になっているものがある。
+ * 実物では、同じ金額の中の間は文字の高さの1〜1.6倍、別の金額との間は2倍以上だった
+ */
+function splitAmount(cell: TextSegment, next: TextSegment | undefined): boolean {
+  if (!next) return false;
+  const head = cell.text.normalize("NFKC").trim();
+  const rest = next.text.normalize("NFKC").trim();
+  if (!LONE_DIGITS.test(head) || !DIGIT_GROUPS.test(rest)) return false;
+  return next.bbox.x0 - cell.bbox.x1 <= MAX_AMOUNT_GAP * height(cell.bbox);
+}
 
 // ---- ルールの種類ごとの処理 ----
 
@@ -306,6 +337,8 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
       for (const { s, gap } of starts) {
         const row = rowFrom(s, others, maxCells);
         for (let k = 1; k <= row.length; k++) {
+          // 先頭の桁だけのセル(「5」「800 000」の「5」)で金額にしない。続きのセルも含める
+          if (type === "money" && splitAmount(row[k - 1] as TextSegment, row[k])) continue;
           // 金額の直後に単位だけのセル(「420」「万円」)があれば、単位も含めて変換する
           const next = row[k];
           const withUnit = type === "money" && next && UNIT_ONLY.test(norm(next).text) ? k + 1 : k;
@@ -329,7 +362,8 @@ function patternCandidates(rule: PatternRule, type: FieldType, page: ExtractionP
   const pattern = new RegExp(rule.pattern.source, [...flags].join(""));
   const candidates: Candidate[] = [];
 
-  groupLines(scope(page, rule)).forEach((line, lineIndex) => {
+  const lines = rule.perCell ? scope(page, rule).map((segment) => ({ segments: [segment] })) : groupLines(scope(page, rule));
+  lines.forEach((line, lineIndex) => {
     // 行の正規化した文字列と、各文字がどのセルの何文字目から来たか
     let text = "";
     const refs: { segment: TextSegment; source: number }[] = [];
@@ -433,6 +467,63 @@ function tableCandidates(rule: TableRule, field: FieldDefinition, page: Extracti
   ];
 }
 
+/** 欄の名前と同じとみなせるか(OCR の文字は、読み違いを少し許す) */
+function matchesLabel(segment: TextSegment, labels: readonly string[]): boolean {
+  const text = norm(segment).text;
+  return labels.some((l) => text === l || (segment.source === "ocr" && nearlySame(text, l)));
+}
+
+function columnCandidates(rule: ColumnRule, type: FieldType, page: ExtractionPage): Candidate[] {
+  const segments = scope(page, rule);
+  const headers = rule.headers.map((labels) => labels.map((l) => normalizeText(l).text));
+  // 目印にする見出し: 読めた見出しのうち、ページの上にあるもの
+  const anchors = segments
+    .map((s) => ({ s, column: headers.findIndex((labels) => matchesLabel(s, labels)) }))
+    .filter((a) => a.column >= 0)
+    .sort((p, q) => q.s.bbox.y1 - p.s.bbox.y1);
+  const anchor = anchors[0];
+  if (!anchor) return [];
+  const h = height(anchor.s.bbox);
+  const maxDistance = (rule.maxDistance ?? 5) * h;
+
+  // 見出しの下の行のうち、型に合う値が2つ以上ある最初の行を、値の行とする
+  // (見出しと値の間に「内」「千」「円」などの小さな文字の行があることがあるため)
+  const below = segments.filter((s) => centerY(s.bbox) < anchor.s.bbox.y0 && anchor.s.bbox.y0 - s.bbox.y1 <= maxDistance);
+  for (const line of groupLines(below)) {
+    const values = line.segments
+      .map((s) => ({ s, converted: convertValue(type, s.text) }))
+      .filter((v): v is { s: TextSegment; converted: NonNullable<ReturnType<typeof convertValue>> } => v.converted !== null)
+      .sort((p, q) => p.s.bbox.x0 - q.s.bbox.x0);
+    if (values.length < 2) continue;
+    // 値の数が欄の数と同じなら、そのまま左から割り当てる。違うときは、目印の見出しの真下の値を基準にする
+    let target: (typeof values)[number] | undefined;
+    if (values.length === headers.length) {
+      target = values[rule.index];
+    } else {
+      const ax = centerX(anchor.s.bbox);
+      const under = values.reduce(
+        (best, v, i) => (Math.abs(centerX(v.s.bbox) - ax) < Math.abs(centerX(values[best]?.s.bbox ?? v.s.bbox) - ax) ? i : best),
+        0,
+      );
+      target = values[under - anchor.column + rule.index];
+    }
+    if (!target) return [];
+    return [
+      {
+        page: page.pageNumber,
+        raw: target.s.text,
+        value: target.converted.value,
+        warnings: target.converted.warnings,
+        boxes: [target.s.bbox],
+        segments: [target.s],
+        distance: anchor.s.bbox.y0 - target.s.bbox.y1,
+        size: height(target.s.bbox),
+      },
+    ];
+  }
+  return [];
+}
+
 // ---- 実行 ----
 
 function ruleId(rule: Rule, index: number): string {
@@ -453,6 +544,8 @@ function candidatesOf(rule: Exclude<Rule, { kind: "derive" }>, field: FieldDefin
       return regionCandidates(rule, field.type, page);
     case "table":
       return field.type === "list" ? tableCandidates(rule, field, page) : [];
+    case "column":
+      return columnCandidates(rule, field.type, page);
   }
 }
 
