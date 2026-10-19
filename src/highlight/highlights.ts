@@ -1,4 +1,5 @@
 import type { FieldDiff } from "../diff/compare-fields.ts";
+import type { TextDiffRow } from "../diff/text-diff.ts";
 import type { ExtractionResult, FieldResult } from "../extract/engine.ts";
 import { formatValue } from "../results/format.ts";
 import type { ReviewedField } from "../results/review.ts";
@@ -89,6 +90,34 @@ export function highlightsFromDiffs(groupId: string, diffs: readonly FieldDiff[]
       label: `${d.label}: ${d.previous ? formatValue(d.type, d.previous.value) : "(なし)"} → ${d.current ? formatValue(d.type, d.current.value) : "(なし)"}`,
       lowConfidence: d.needsCheck,
     }));
+}
+
+/** テキスト差分のハイライトの ID の、項目のキーにあたる部分(「text-行の番号」) */
+export function textDiffKey(index: number): string {
+  return `text-${index}`;
+}
+
+/**
+ * テキスト差分のうち、今回の書類で変わった行・増えた行を、今回のPDF上のハイライトにする。
+ * なくなった行は今回のPDFにないので描かない
+ */
+export function highlightsFromTextDiff(groupId: string, rows: readonly TextDiffRow[], page: number): Highlight[] {
+  return rows.flatMap((row, index): Highlight[] => {
+    if ((row.kind !== "changed" && row.kind !== "added") || row.current?.page !== page) return [];
+    return [
+      {
+        id: `${groupId}:${textDiffKey(index)}`,
+        page,
+        rects: row.current.rects,
+        kind: { type: "diff", status: row.kind },
+        label:
+          row.kind === "changed"
+            ? `変更された行: ${row.previous?.text ?? ""} → ${row.current.text}`
+            : `増えた行: ${row.current.text}`,
+        lowConfidence: row.current.source === "ocr",
+      },
+    ];
+  });
 }
 
 /**

@@ -1038,3 +1038,156 @@ button {
   border-color: var(--color-accent);
   color: var(--color-accent);
 }
+
+/* ---- 差分の表示の切り替え(項目の差分 / テキスト差分) ---- */
+
+.diff-tabs {
+  display: flex;
+  padding: 3px;
+  border-radius: var(--radius-card);
+  background: var(--color-line);
+}
+
+.diff-tabs__tab {
+  flex: 1 1 0;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--color-ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.diff-tabs__tab[aria-selected="true"] {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+}
+
+/* ---- テキスト差分 ---- */
+
+.text-diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.text-diff__ocr {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--color-ocr-bg);
+  color: var(--color-ocr);
+  font-size: var(--font-size-small);
+}
+
+.text-diff__scroll {
+  max-height: 60vh;
+  overflow: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+}
+
+.text-diff__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+  table-layout: fixed;
+}
+
+.text-diff__table th {
+  position: sticky;
+  top: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg);
+  color: var(--color-ink-2);
+  font-weight: 500;
+  text-align: left;
+}
+
+.text-diff__table th:first-child {
+  width: 24px;
+}
+
+.text-diff__row td {
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--color-line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.text-diff__mark {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-align: center;
+}
+
+.text-diff__row--same {
+  color: var(--color-ink-3);
+}
+.text-diff__row--changed .text-diff__mark {
+  background: var(--diff-changed);
+  color: var(--diff-changed-ink);
+}
+.text-diff__row--added .text-diff__mark {
+  background: var(--diff-added);
+  color: var(--diff-added-ink);
+}
+.text-diff__row--removed .text-diff__mark {
+  background: var(--diff-removed);
+  color: var(--diff-removed-ink);
+}
+
+.text-diff__row--selected td {
+  background: var(--color-surface-muted);
+  box-shadow:
+    inset 0 1px 0 var(--color-accent),
+    inset 0 -1px 0 var(--color-accent);
+}
+
+.text-diff__page {
+  margin-right: var(--space-1);
+  color: var(--color-ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+}
+
+.text-diff__table del {
+  background: var(--diff-removed);
+  color: var(--diff-removed-ink);
+  text-decoration: line-through;
+}
+
+.text-diff__table ins {
+  background: var(--diff-added);
+  color: var(--diff-added-ink);
+  text-decoration: underline;
+}
+
+.text-diff__select {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.text-diff__select:hover,
+.text-diff__select:focus-visible {
+  text-decoration: underline;
+}
+
+.text-diff__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-ink-2);
+  font-size: var(--font-size-small);
+}

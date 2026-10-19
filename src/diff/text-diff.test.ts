@@ -17,7 +17,9 @@ const kinds = (rows: ReturnType<typeof diffDocumentLines>) => rows.map((r) => r.
 
 describe("documentLines", () => {
   it("同じ高さのセルを1行にまとめ、空白を除いて正規化する", () => {
-    const result = documentLines([{ pageNumber: 2, segments: [seg("特記事項", 0), seg("ペット可", 0, 200), seg("⽀払 金額", 1)] }]);
+    const result = documentLines([
+      { pageNumber: 2, segments: [seg("特記事項", 0), seg("ペット可", 0, 200), seg("⽀払 金額", 1)] },
+    ]);
     expect(result.map((l) => l.text)).toEqual(["特記事項ペット可", "支払金額"]);
     expect(result[0]?.page).toBe(2);
     expect(result[0]?.rects).toHaveLength(2);
@@ -30,7 +32,10 @@ describe("documentLines", () => {
 
 describe("diffDocumentLines", () => {
   it("同じ行は same、書き換わった行は changed にして、変わった文字を示す", () => {
-    const rows = diffDocumentLines(lines(["入居申込書", "特記事項:ペット不可", "以上"]), lines(["入居申込書", "特記事項:ペット可", "以上"]));
+    const rows = diffDocumentLines(
+      lines(["入居申込書", "特記事項:ペット不可", "以上"]),
+      lines(["入居申込書", "特記事項:ペット可", "以上"]),
+    );
     expect(kinds(rows)).toEqual(["same", "changed", "same"]);
     expect(rows[1]?.parts?.previous.filter((p) => p.changed).map((p) => p.text)).toEqual(["不"]);
     expect(rows[1]?.parts?.current.every((p) => !p.changed)).toBe(true);

@@ -8,10 +8,18 @@ import { ResultPanel } from "./components/ResultPanel.tsx";
 import { type ComparisonSide, compareDocuments, type FieldDiff } from "./diff/compare-fields.ts";
 import { DiffList } from "./diff/DiffList.tsx";
 import { sideFromExported, sideFromReviewed } from "./diff/sides.ts";
+import { TextDiffView } from "./diff/TextDiffView.tsx";
+import { type DocumentLine, diffDocumentLines, documentLines, type TextDiffRow } from "./diff/text-diff.ts";
 import { convertValue } from "./extract/convert.ts";
 import { HighlightLayer } from "./highlight/HighlightLayer.tsx";
 import { HighlightLegend } from "./highlight/HighlightLegend.tsx";
-import { highlightsFromDiffs, highlightsFromReviewed, type ToScreen } from "./highlight/highlights.ts";
+import {
+  highlightsFromDiffs,
+  highlightsFromReviewed,
+  highlightsFromTextDiff,
+  type ToScreen,
+  textDiffKey,
+} from "./highlight/highlights.ts";
 import { OpenPdfError, openErrorMessage } from "./pdf/open-file.ts";
 import type { ReadMethod } from "./pdf/page-kind.ts";
 import { openPdf } from "./pdf/pdfjs.ts";
@@ -19,7 +27,7 @@ import { pageSegments } from "./pdf/read-page.ts";
 import { ImportError, parseExportedExtraction } from "./results/export.ts";
 import { ResultList } from "./results/ResultList.tsx";
 import { type ReviewAction, type ReviewedField, type ReviewState, reviewFields, reviewReducer } from "./results/review.ts";
-import { analyzePdf, useDocumentResults } from "./results/useDocumentResults.ts";
+import { analyzePdf, type PageState, useDocumentResults } from "./results/useDocumentResults.ts";
 import { findDocument } from "./schema/fields.ts";
 import { groupLines } from "./text/lines.ts";
 import type { Rect } from "./text/types.ts";
@@ -41,6 +49,17 @@ interface PreviousDocument {
   fileName: string;
   documentType: string;
   side: ComparisonSide;
+  /** テキスト差分に使う、前回の書類の行。JSON から読み込んだときは文字がないので undefined */
+  lines?: DocumentLine[];
+}
+
+/** 書類のまとまりのページの文字を、テキスト差分に使う行にする */
+function linesOf(pages: readonly (PageState | null | undefined)[]): DocumentLine[] {
+  return documentLines(
+    pages
+      .filter((p): p is PageState => p != null)
+      .map((p) => ({ pageNumber: p.reading.pageNumber, segments: pageSegments(p.reading, p.method) })),
+  );
 }
 
 /** 書類のまとまりの中の1項目 */
@@ -70,6 +89,8 @@ export function App() {
   // 前回と比較している資料
   const [previous, setPrevious] = useState<PreviousDocument | null>(null);
   const [comparing, setComparing] = useState(false);
+  // 前回との差分の表示(項目の差分 / テキスト差分)
+  const [diffView, setDiffView] = useState<"fields" | "text">("fields");
   const compareInputRef = useRef<HTMLInputElement>(null);
   // 一覧から項目を選んだときだけ、PDF上のハイライトまでスクロールする
   const scrollToHighlight = useRef(false);
@@ -182,16 +203,29 @@ export function App() {
     return { target: target.document, result: compareDocuments(definition, previous.side, current) };
   }, [previous, reviewed, pageNumber]);
 
+  // テキスト差分(前回の資料に文字がないときは rows が null)
+  const textDiff = useMemo((): { rows: TextDiffRow[] | null; usesOcr: boolean } | null => {
+    const target = comparison?.target;
+    if (!previous || !target) return null;
+    if (!previous.lines) return { rows: null, usesOcr: false };
+    const currentLines = linesOf(target.pages.map((n) => results.pages[n - 1]));
+    return {
+      rows: diffDocumentLines(previous.lines, currentLines),
+      usesOcr: [...previous.lines, ...currentLines].some((l) => l.source === "ocr"),
+    };
+  }, [previous, comparison?.target, results.pages]);
+
   const highlights = useMemo(() => {
     if (!page || page.pageNumber !== pageNumber) return [];
     return reviewed.flatMap(({ document, items }) => {
       // 比較している書類は、差分の色でハイライトする
       if (comparison?.target?.id === document.id && comparison.result) {
+        if (diffView === "text") return textDiff?.rows ? highlightsFromTextDiff(document.id, textDiff.rows, pageNumber) : [];
         return highlightsFromDiffs(document.id, comparison.result.fields, pageNumber);
       }
       return items ? highlightsFromReviewed(document.id, document.documentId, items, pageNumber) : [];
     });
-  }, [reviewed, page, pageNumber, comparison]);
+  }, [reviewed, page, pageNumber, comparison, diffView, textDiff]);
 
   const viewport = useMemo(() => page?.getViewport({ scale }) ?? null, [page, scale]);
   const toScreen = useMemo<ToScreen | null>(() => {
@@ -214,6 +248,11 @@ export function App() {
 
   // 一覧から選んだ項目のハイライトを、画面の中に表示する
   const selectedId = selected ? `${selected.groupId}:${selected.key}` : null;
+  // テキスト差分で選んでいる行の番号
+  const selectedTextRow =
+    selected && selected.groupId === comparison?.target?.id && selected.key.startsWith("text-")
+      ? Number(selected.key.slice("text-".length))
+      : null;
   // biome-ignore lint/correctness/useExhaustiveDependencies: ページを切り替えた後、ハイライトが描かれてからスクロールするため highlights も見る
   useEffect(() => {
     if (!selectedId || !scrollToHighlight.current) return;
@@ -252,7 +291,7 @@ export function App() {
       }
       const doc = await openPdf(file);
       try {
-        const documents = await analyzePdf(doc);
+        const { documents, pages } = await analyzePdf(doc);
         // 今回のPDFにある書類タイプと同じ書類を、前回の資料から選ぶ
         const currentTypes = new Set(reviewed.map((r) => r.document.documentId));
         const match =
@@ -265,6 +304,7 @@ export function App() {
           fileName: file.name,
           documentType: match.documentId,
           side: sideFromReviewed(reviewFields(match.extraction.fields, {}), match.readable),
+          lines: linesOf(match.pages.map((n) => pages[n - 1])),
         });
       } finally {
         void doc.loadingTask.destroy();
@@ -512,6 +552,28 @@ export function App() {
             </div>
           )}
           {previous && comparison?.target && comparison.result && (
+            <div className="diff-tabs" role="tablist" aria-label="差分の表示">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={diffView === "fields"}
+                className="diff-tabs__tab"
+                onClick={() => setDiffView("fields")}
+              >
+                項目の差分
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={diffView === "text"}
+                className="diff-tabs__tab"
+                onClick={() => setDiffView("text")}
+              >
+                テキスト差分
+              </button>
+            </div>
+          )}
+          {previous && comparison?.target && comparison.result && diffView === "fields" && (
             <DiffList
               documentTitle={titleOf(previous.documentType)}
               previousName={previous.fileName}
@@ -523,6 +585,26 @@ export function App() {
               }}
               onClose={() => setPrevious(null)}
             />
+          )}
+          {previous && comparison?.target && textDiff && diffView === "text" && (
+            <>
+              <TextDiffView
+                rows={textDiff.rows}
+                usesOcr={textDiff.usesOcr}
+                selectedIndex={selectedTextRow}
+                onSelect={(index, row) => {
+                  if (!comparison.target || !row.current) return;
+                  setSelected({ groupId: comparison.target.id, key: textDiffKey(index) });
+                  scrollToHighlight.current = true;
+                  setPageNumber(row.current.page);
+                }}
+              />
+              <div className="result-list__footer">
+                <button type="button" className="button" onClick={() => setPrevious(null)}>
+                  比較をやめる
+                </button>
+              </div>
+            </>
           )}
           {!previous && current && (
             <DocumentTypeCard
