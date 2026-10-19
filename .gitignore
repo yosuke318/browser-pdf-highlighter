@@ -4,3 +4,6 @@ dist/
 
 # 実在の書類(マスク済みのものを含む)は、ここに置いてリポジトリには入れない。samples/README.md の「実データの扱い」を参照
 local-samples/
+
+# 開発サーバーの起動設定(Claude Code のプレビュー用)。手元の環境ごとに違うので管理しない
+.claude/launch.json
