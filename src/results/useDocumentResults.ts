@@ -83,8 +83,11 @@ export function documentsOf(pages: readonly (PageState | null)[]): DocumentResul
   });
 }
 
-/** PDFの全ページを読み取って(OCR で読むページは OCR して)、書類ごとに抽出する(前回の資料として読み込んだPDFに使う) */
-export async function analyzePdf(doc: PDFDocumentProxy): Promise<DocumentResult[]> {
+/**
+ * PDFの全ページを読み取って(OCR で読むページは OCR して)、書類ごとに抽出する(前回の資料として読み込んだPDFに使う)。
+ * テキスト差分に使うため、ページごとの読み取り結果も返す
+ */
+export async function analyzePdf(doc: PDFDocumentProxy): Promise<{ documents: DocumentResult[]; pages: PageState[] }> {
   const pages: PageState[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
@@ -92,7 +95,7 @@ export async function analyzePdf(doc: PDFDocumentProxy): Promise<DocumentResult[
     if (reading.classification.method === "ocr") reading.ocr = await ocrPdfPage(page);
     pages.push(pageState(reading));
   }
-  return documentsOf(pages);
+  return { documents: documentsOf(pages), pages };
 }
 
 export function useDocumentResults(
