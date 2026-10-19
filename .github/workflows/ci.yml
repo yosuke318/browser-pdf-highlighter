@@ -28,3 +28,5 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run check:build
+      # PDFの処理中に外部ドメインへの通信がないこと(E2E。ランナーに入っている Google Chrome を使う)
+      - run: npm run test:e2e

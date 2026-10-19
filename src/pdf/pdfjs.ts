@@ -24,6 +24,8 @@ export function documentOptions() {
     standardFontDataUrl: assetUrl("standard_fonts"),
     wasmUrl: assetUrl("wasm"),
     iccUrl: assetUrl("iccs"),
+    // フォントの描画を速くするための eval を使わない(CSP で eval を禁止しているため)
+    isEvalSupported: false,
   };
 }
 

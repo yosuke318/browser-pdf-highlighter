@@ -7,3 +7,7 @@ local-samples/
 
 # 開発サーバーの起動設定(Claude Code のプレビュー用)。手元の環境ごとに違うので管理しない
 .claude/launch.json
+
+# Playwright(E2Eテスト)の結果
+test-results/
+playwright-report/

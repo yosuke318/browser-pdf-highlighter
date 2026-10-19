@@ -51,7 +51,7 @@ export async function ocrPdfPageInNode(page: PDFPageProxy): Promise<OcrReading> 
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, width, height);
-  await page.render({ canvas: canvas as never, canvasContext: ctx as never, viewport }).promise;
+  await page.render({ canvas: canvas as never, canvasContext: ctx as never, viewport, intent: "print" }).promise;
   const rgba = ctx.getImageData(0, 0, width, height).data;
   const recognize = tesseractRecognizer(await getWorker(), toPng);
   return ocrRenderedPage(

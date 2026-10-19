@@ -14,5 +14,13 @@
     "isolatedModules": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["scripts/**/*.ts", "vite-plugins/**/*.ts", "vite.config.ts", "src/**/*.test.ts", "src/test-support/**/*.ts"]
+  "include": [
+    "scripts/**/*.ts",
+    "vite-plugins/**/*.ts",
+    "vite.config.ts",
+    "playwright.config.ts",
+    "e2e/**/*.ts",
+    "src/**/*.test.ts",
+    "src/test-support/**/*.ts"
+  ]
 }

@@ -69,7 +69,9 @@ export async function ocrPdfPage(page: PDFPageProxy, onProgress?: OcrProgress): 
   if (!ctx) throw new Error("canvas を使えません");
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+  // intent を "print" にすると、pdf.js は requestAnimationFrame を使わずに描く。
+  // 画面に出す描画("display")は requestAnimationFrame で進むので、タブが隠れていると止まってしまう
+  await page.render({ canvas, canvasContext: ctx, viewport, intent: "print" }).promise;
   const { width, height } = canvas;
   const rgba = ctx.getImageData(0, 0, width, height).data;
   // 大きな canvas のメモリをすぐに手放す
