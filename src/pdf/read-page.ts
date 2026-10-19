@@ -1,6 +1,14 @@
 import type { PDFPageProxy } from "pdfjs-dist";
+import type { OcrReading } from "../ocr/ocr-page.ts";
 import type { TextSegment } from "../text/types.ts";
-import { analyzeOperators, classifyPage, type OpCodes, type PageClassification, pageStats } from "./page-kind.ts";
+import {
+  analyzeOperators,
+  classifyPage,
+  type OpCodes,
+  type PageClassification,
+  pageStats,
+  type ReadMethod,
+} from "./page-kind.ts";
 import { type FontStyleLike, layoutText, type TextItemLike } from "./text-layout.ts";
 
 // 1ページ分の読み取り: ページの種類の判別と、pdf.js による文字と座標の取り出し。
@@ -16,6 +24,16 @@ export interface PageReading {
    * 判別結果が OCR のページでは使わない(透明テキストや文字化けした文字が入っていることがある)
    */
   pdfSegments: TextSegment[];
+  /** OCR で読み取った結果。OCR がまだ終わっていないページ、OCR しないページでは undefined */
+  ocr?: OcrReading;
+}
+
+/**
+ * 読み取り方法に応じて、後続の処理(抽出ルール・書類タイプの判定・範囲選択)に使う文字を選ぶ。
+ * OCR で読むページで、OCR がまだ終わっていなければ空
+ */
+export function pageSegments(reading: PageReading, method: ReadMethod): TextSegment[] {
+  return method === "pdf" ? reading.pdfSegments : (reading.ocr?.segments ?? []);
 }
 
 export async function readPage(page: PDFPageProxy, ops: OpCodes): Promise<PageReading> {

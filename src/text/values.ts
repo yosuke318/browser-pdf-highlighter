@@ -13,6 +13,7 @@ export interface ParsedMoney {
 /**
  * 金額の文字列を円単位の整数にする。
  * 「5,800,000」「¥5,800,000」「5,800,000円」「580万円」「420.5万円」「1,234千円」「△12,000」に対応する。
+ * OCR で読み違えやすい「4.200.000」「5.,800.,000」「4200,000」も桁区切りとして読む。
  * 空欄や「-」(該当なし)は null。
  */
 export function parseMoney(raw: string): ParsedMoney | null {
@@ -26,7 +27,10 @@ export function parseMoney(raw: string): ParsedMoney | null {
     text = text.slice(1);
   }
   text = text.replace(/^[¥\\]/, "");
-  const match = /^(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(万円|千円|万|千|円)?$/.exec(text);
+  // OCR では桁区切りの「,」が「.」や「.,」に読まれることが多い(「4.200.000」)。
+  // 円単位の金額には小数がないので、万・千の単位がなければ、後に数字が3桁続く「.」も桁区切りとみなす
+  if (!/[万千]円?$/.test(text)) text = text.replace(/[.,]+(?=\d{3}(?:\D|$))/g, ",");
+  const match = /^(\d+(?:,\d{3})+|\d+)(?:\.(\d+))?(万円|千円|万|千|円)?$/.exec(text);
   if (!match) return null;
   const [, integer = "", fraction, unit] = match;
   const value = Number(`${integer.replace(/,/g, "")}${fraction ? `.${fraction}` : ""}`);

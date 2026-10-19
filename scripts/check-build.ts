@@ -20,6 +20,11 @@ const ALLOWED_HOSTS: Record<string, string> = {
   "react.dev": "本番ビルドのエラーメッセージに入る説明ページのURL(React)",
   "example.com": "URL を解析するための仮のベースURL(pdf.js)",
   "foo.bar": "URL を解析するための仮のベースURL(pdf.js)",
+  "cdn.jsdelivr.net":
+    "worker・文字認識の本体・学習データの取得先の既定値(tesseract.js)。src/ocr/browser.ts ですべて同じオリジンの URL を指定しているので使われない",
+  "github.com": "tesseract.js が取り込む package.json のリポジトリの URL(tesseract.js)",
+  "opencollective.com": "tesseract.js が取り込む package.json の寄付先の URL(tesseract.js)",
+  "rolldown.rs": "CommonJS の require を呼べないときのエラーメッセージに入る説明ページの URL(Vite のビルド)",
 };
 
 const URL_PATTERN = /\b(?:https?:)?\/\/([a-z0-9-]+(?:\.[a-z0-9-]+)+)/gi;

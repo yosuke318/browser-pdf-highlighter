@@ -9,10 +9,12 @@ interface Props {
   override?: string;
   /** null を渡すと自動判定に戻す */
   onChange: (documentId: string | null) => void;
+  /** このページの OCR がまだ終わっていないか */
+  ocrPending?: boolean;
 }
 
 const REASONS: Record<NonNullable<DocumentTypeGuess["reason"]>, string> = {
-  "no-text": "このページには文字データがないため、書類の種類を判定できません(OCRに対応したら判定します)。",
+  "no-text": "このページから文字を読み取れなかったため、書類の種類を判定できません。",
   "low-score": "書類の種類を判定する手がかりが見つかりませんでした。",
   "close-candidates": "複数の書類の特徴が見つかり、書類の種類を絞り込めませんでした。",
 };
@@ -21,7 +23,7 @@ const AUTO = "__auto__";
 const titleOf = (id: string) => DOCUMENT_TYPES.find((t) => t.id === id)?.title ?? id;
 
 /** 書類の種類の判定結果と根拠、手動での切り替え */
-export function DocumentTypeCard({ pageNumber, guess, override, onChange }: Props) {
+export function DocumentTypeCard({ pageNumber, guess, override, onChange, ocrPending }: Props) {
   const selectId = useId();
   const detected = guess.documentId;
   const current = override ?? detected;
@@ -38,7 +40,12 @@ export function DocumentTypeCard({ pageNumber, guess, override, onChange }: Prop
           detected && <span className="badge badge--neutral">自動判定</span>
         )}
       </p>
-      {!detected && !override && guess.reason && (
+      {!detected && !override && ocrPending && (
+        <p className="document-type__note" role="status">
+          OCRで文字を読み取っています。読み取りが終わったら、書類の種類を判定します。
+        </p>
+      )}
+      {!detected && !override && !ocrPending && guess.reason && (
         <p className="document-type__note">
           <AlertIcon size={16} />
           {REASONS[guess.reason]}

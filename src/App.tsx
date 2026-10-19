@@ -15,6 +15,7 @@ import { highlightsFromDiffs, highlightsFromReviewed, type ToScreen } from "./hi
 import { OpenPdfError, openErrorMessage } from "./pdf/open-file.ts";
 import type { ReadMethod } from "./pdf/page-kind.ts";
 import { openPdf } from "./pdf/pdfjs.ts";
+import { pageSegments } from "./pdf/read-page.ts";
 import { ImportError, parseExportedExtraction } from "./results/export.ts";
 import { ResultList } from "./results/ResultList.tsx";
 import { type ReviewAction, type ReviewedField, type ReviewState, reviewFields, reviewReducer } from "./results/review.ts";
@@ -140,6 +141,10 @@ export function App() {
   const reportError = useCallback((message: string) => setError(message), []);
   const results = useDocumentResults(opened?.doc ?? null, methodOverrides, typeOverrides, reportError);
   const current = results.pages[pageNumber - 1] ?? null;
+  const currentOcr = results.ocr[pageNumber - 1];
+  // OCR で読むページのうち、読み取りが終わったページ(失敗したページも含む)の数
+  const ocrTotal = results.ocr.filter((s) => s !== undefined).length;
+  const ocrFinished = results.ocr.filter((s) => s?.status === "done" || s?.status === "failed").length;
 
   // 書類ごとに、抽出結果へ確認・修正を重ねる
   const reviewed = useMemo(
@@ -300,8 +305,13 @@ export function App() {
       .find((r) => r.document.id === rangeTarget.groupId)
       ?.items?.find((i) => i.field.key === rangeTarget.key);
     if (!target) return;
-    if (current.method !== "pdf") {
-      setRangeError("このページには使える文字データがないため、範囲から値を取れません。「修正する」から入力してください。");
+    const segments = pageSegments(current.reading, current.method);
+    if (segments.length === 0) {
+      setRangeError(
+        currentOcr && currentOcr.status !== "done" && currentOcr.status !== "failed"
+          ? "OCRで文字を読み取っています。読み取りが終わってから、もう一度選んでください。"
+          : "このページには使える文字データがないため、範囲から値を取れません。「修正する」から入力してください。",
+      );
       return;
     }
     // 画面の長方形の4つの角を、PDF座標に変換する
@@ -317,7 +327,7 @@ export function App() {
       x1: Math.max(...corners.map((c) => c[0])),
       y1: Math.max(...corners.map((c) => c[1])),
     };
-    const inside = current.reading.pdfSegments.filter((s) => {
+    const inside = segments.filter((s) => {
       const cx = (s.bbox.x0 + s.bbox.x1) / 2;
       const cy = (s.bbox.y0 + s.bbox.y1) / 2;
       return cx >= area.x0 && cx <= area.x1 && cy >= area.y0 && cy <= area.y1;
@@ -452,7 +462,7 @@ export function App() {
             </p>
           )}
           {current && current.method === "ocr" && (
-            <OcrNotice kind={current.reading.classification.kind} overridden={methodOverridden} />
+            <OcrNotice kind={current.reading.classification.kind} overridden={methodOverridden} state={currentOcr} />
           )}
           {rangeTarget && (
             <div className="range-notice" role="status">
@@ -520,11 +530,17 @@ export function App() {
               guess={current.guess}
               override={typeOverrides[pageNumber]}
               onChange={changeDocumentType}
+              ocrPending={currentOcr !== undefined && currentOcr.status !== "done" && currentOcr.status !== "failed"}
             />
           )}
           {opened && !results.complete && (
             <p className="loading" role="status">
               ページを読み取っています…
+            </p>
+          )}
+          {results.complete && ocrFinished < ocrTotal && (
+            <p className="loading" role="status">
+              OCRで読み取っています…({ocrFinished}/{ocrTotal}ページ)。読み取りが終わったページから、抽出結果に反映します。
             </p>
           )}
           {!previous &&
@@ -548,7 +564,7 @@ export function App() {
                 </p>
               ),
             )}
-          {results.complete && reviewed.length === 0 && (
+          {results.complete && ocrFinished === ocrTotal && reviewed.length === 0 && (
             <p className="result-panel__note">
               書類の種類が分からないため、項目を抽出していません。「書類の種類を変える」から選んでください。
             </p>

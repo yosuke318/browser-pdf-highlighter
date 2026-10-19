@@ -6,10 +6,14 @@ import { defineDocument } from "../rules.ts";
 // 中途就職日(hiredOn)・中途退職日(leftOn)・乙欄(secondaryEmployment)は、ダミーPDFでは空欄で
 // 正解データがなく、ルールの正しさを確かめられないため、まだルールを書いていない(未検出になる)。
 
-/** 上の枠(支払を受ける者)。下の枠(支払者)の「氏名又は名称」「住所(居所)又は所在地」と区別する */
-const RECIPIENT = { start: ["支払を受ける者"], end: ["支払者"] };
+/**
+ * 上の枠(支払を受ける者)。下の枠(支払者)の「氏名又は名称」「住所(居所)又は所在地」と区別する。
+ * 見出しは縦書きで、スキャンPDFの OCR では読めないことが多いので、横書きのタイトルと
+ * 「個人番号又は法人番号」(支払者の枠の1行目)も目印にする
+ */
+const RECIPIENT = { start: ["支払を受ける者", "給与所得の源泉徴収票"], end: ["支払者", "個人番号又は法人番号"] };
 /** 下の枠(支払者 = 勤務先) */
-const PAYER = { start: ["支払者"] };
+const PAYER = { start: ["支払者", "個人番号又は法人番号"] };
 
 export default defineDocument({
   id: "withholding-slip",

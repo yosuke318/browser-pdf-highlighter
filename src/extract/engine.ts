@@ -214,6 +214,33 @@ function rowFrom(start: TextSegment, segments: TextSegment[], maxCells: number):
   return chain;
 }
 
+/**
+ * OCR の読み違いを許して、ラベルと同じとみなせるか。
+ * 同じ長さで、違う文字が少ないもの(4文字以上なら1文字、10文字以上なら2文字まで)だけを認める。
+ * 文字の増減は認めない(「生命保険料の控除額」と「地震保険料の控除額」のような別のラベルと取り違えないため)
+ */
+export function nearlySame(text: string, label: string): boolean {
+  const a = [...text];
+  const b = [...label];
+  if (a.length !== b.length || b.length < 4) return false;
+  const allowed = b.length >= 10 ? 2 : 1;
+  let diff = 0;
+  for (let i = 0; i < b.length; i++) if (a[i] !== b[i] && ++diff > allowed) return false;
+  return true;
+}
+
+/**
+ * 下向きに探すときの、ラベルから値までの距離。
+ * 縦の距離は文字の高さの半分の刻みで比べ、同じ刻みなら横にずれていない方を近いとする
+ * (OCR では同じ行の値でも、セルごとに高さがわずかにずれるため、縦の距離だけでは隣の列の値を選んでしまう)
+ */
+function belowDistance(anchor: TextSegment, value: TextSegment, h: number): number {
+  const step = h / 2;
+  const rows = Math.round((anchor.bbox.y0 - value.bbox.y1) / step);
+  const offset = Math.abs(centerX(value.bbox) - centerX(anchor.bbox));
+  return rows * step + Math.min(offset, 1e3) / 1e4;
+}
+
 function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage): Candidate[] {
   const segments = scope(page, rule);
   const labels = rule.labels.map((l) => normalizeText(l).text);
@@ -227,7 +254,13 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
 
   for (const anchor of segments) {
     const n = norm(anchor);
-    const label = labels.find((l) => n.text === l || (inline && n.text.startsWith(l)));
+    const ocr = anchor.source === "ocr";
+    const label = labels.find(
+      (l) =>
+        n.text === l ||
+        (inline && n.text.startsWith(l)) ||
+        (ocr && (nearlySame(n.text, l) || (inline && nearlySame(n.text.slice(0, l.length), l)))),
+    );
     if (label === undefined) continue;
     if (sideHeadings) {
       // 区分の見出しは、範囲を絞る前のページ全体から探す
@@ -263,13 +296,12 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
               .sort((p, q) => p.gap - q.gap)
           : others
               .filter((s) => s.bbox.x1 > anchor.bbox.x0 - 2 * h && s.bbox.x0 < anchor.bbox.x1 + 2 * h)
-              .map((s) => ({ s, gap: anchor.bbox.y0 - s.bbox.y1 }))
-              .filter(({ gap }) => gap >= -h / 3 && gap <= maxDistance)
-              .sort(
-                (p, q) =>
-                  p.gap - q.gap ||
-                  Math.abs(centerX(p.s.bbox) - centerX(anchor.bbox)) - Math.abs(centerX(q.s.bbox) - centerX(anchor.bbox)),
-              );
+              .map((s) => ({ s, gap: belowDistance(anchor, s, h) }))
+              .filter(({ s }) => {
+                const gap = anchor.bbox.y0 - s.bbox.y1;
+                return gap >= -h / 3 && gap <= maxDistance;
+              })
+              .sort((p, q) => p.gap - q.gap);
 
       for (const { s, gap } of starts) {
         const row = rowFrom(s, others, maxCells);

@@ -33,3 +33,5 @@ CI(GitHub Actions)では、上のチェックとビルドをすべて実行し�
 - pdf.js の worker と、実行時に読み込むデータファイル(CMap・標準フォント・wasm・ICCプロファイル)は、
   CDN を使わずアプリと同じオリジンから配信します(`vite-plugins/pdfjs-assets.ts`)
 - PDF に埋め込まれた JavaScript を実行するためのファイルは配信しません
+- スキャンPDFの OCR(tesseract.js)も、ブラウザの中で行います。OCR の worker・文字認識の本体(WebAssembly)・
+  日本語の学習データも、CDN を使わずアプリと同じオリジンから配信します(`vite-plugins/tesseract-assets.ts`)

@@ -23,6 +23,14 @@ describe("convertValue", () => {
     expect(convertValue("boolean", "無")).toEqual({ value: false, warnings: [] });
   });
 
+  it("text は前後の句読点や縦線を除き、記号だけの文字列は値にしない(OCR の汚れ)", () => {
+    expect(convertValue("text", "。 山田太郎")).toEqual({ value: "山田太郎", warnings: [] });
+    expect(convertValue("text", "株式会社サンプル商事 |")).toEqual({ value: "株式会社サンプル商事", warnings: [] });
+    expect(convertValue("text", "(株)サンプル")).toEqual({ value: "(株)サンプル", warnings: [] });
+    expect(convertValue("text", "。")).toBeNull();
+    expect(convertValue("text", "|")).toBeNull();
+  });
+
   it("変換不能な値は null を返す", () => {
     expect(convertValue("yearMonth", "2024-13")).toBeNull();
     expect(convertValue("number", "3,500円")).toBeNull();

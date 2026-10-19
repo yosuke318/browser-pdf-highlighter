@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findDocument } from "../schema/fields.ts";
 import type { TextSegment } from "../text/types.ts";
-import { type ExtractionPage, extractDocument, toValues } from "./engine.ts";
+import { type ExtractionPage, extractDocument, nearlySame, toValues } from "./engine.ts";
 import { type DocumentRules, defineDocument } from "./rules.ts";
 
 // エンジンの動きを、架空のセル配置で確かめる。
@@ -374,5 +374,17 @@ describe("抽出結果の形", () => {
 
   it("抽出項目の定義にない書類IDはエラーにする", () => {
     expect(() => extractDocument(defineDocument({ id: "unknown", fields: {} }), [])).toThrow();
+  });
+});
+
+describe("nearlySame(OCR の読み違いを許したラベルの一致)", () => {
+  it.each([
+    ["住所又は居鹿", "住所又は居所", true],
+    ["所得控除の額の合計客", "所得控除の額の合計額", true],
+    ["地震保険料の控除額", "生命保険料の控除額", false],
+    ["氏各", "氏名", false],
+    ["給与収入額", "給与収入", false],
+  ])("%s と %s → %s", (text, label, expected) => {
+    expect(nearlySame(text, label)).toBe(expected);
   });
 });

@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { getDocument, OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { type PageReading, readPage } from "../pdf/read-page.ts";
 import { isRecord } from "../schema/fields.ts";
+import { ocrPdfPageInNode } from "./ocr.ts";
 
 // テストからダミーPDF(samples/)を読むための補助。Node.js でだけ使う。
 
@@ -42,13 +43,21 @@ export async function loadExpected(documentId: string): Promise<Record<string, u
   return raw.values;
 }
 
-/** PDFの全ページを読み取る(ページの種類の判別と、pdf.js による文字の取り出し) */
-export async function readSample(file: string): Promise<PageReading[]> {
+/**
+ * PDFの全ページを読み取る(ページの種類の判別と、pdf.js による文字の取り出し)。
+ * ocr が true なら、OCR で読むと判別したページを OCR する
+ */
+export async function readSample(file: string, options: { ocr?: boolean } = {}): Promise<PageReading[]> {
   const data = new Uint8Array(await readFile(join(SAMPLES_DIR, file)));
   const doc = await getDocument({ data, cMapUrl: join(PDFJS_ROOT, "cmaps/"), cMapPacked: true }).promise;
   try {
     const pages: PageReading[] = [];
-    for (let i = 1; i <= doc.numPages; i++) pages.push(await readPage(await doc.getPage(i), OPS));
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const reading = await readPage(page, OPS);
+      if (options.ocr && reading.classification.method === "ocr") reading.ocr = await ocrPdfPageInNode(page);
+      pages.push(reading);
+    }
     return pages;
   } finally {
     await doc.loadingTask.destroy();

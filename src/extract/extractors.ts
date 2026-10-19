@@ -1,4 +1,4 @@
-import type { PageReading } from "../pdf/read-page.ts";
+import { type PageReading, pageSegments } from "../pdf/read-page.ts";
 import { type ExtractionPage, extractDocument, toValues } from "./engine.ts";
 import { DOCUMENT_DEFINITIONS } from "./load-definitions.ts";
 
@@ -17,12 +17,12 @@ export type DocumentExtractor = (pages: readonly PageReading[]) => ExtractedValu
 
 /**
  * ページの読み取り結果から、ルールを当てはめる文字を選ぶ。
- * pdf.js で読むページだけを使う(OCR で読むページは、OCR に対応したら OCR の結果を使う)
+ * pdf.js で読むページは pdf.js の文字を、OCR で読むページは OCR の結果を使う(OCR が終わっていないページは使わない)
  */
 export function toExtractionPages(pages: readonly PageReading[]): ExtractionPage[] {
   return pages
-    .filter((p) => p.classification.method === "pdf")
-    .map((p) => ({ pageNumber: p.pageNumber, view: p.view, segments: p.pdfSegments }));
+    .filter((p) => p.classification.method === "pdf" || p.ocr !== undefined)
+    .map((p) => ({ pageNumber: p.pageNumber, view: p.view, segments: pageSegments(p, p.classification.method) }));
 }
 
 export const EXTRACTORS: Readonly<Partial<Record<string, DocumentExtractor>>> = Object.fromEntries(

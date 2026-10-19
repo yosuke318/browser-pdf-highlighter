@@ -1,5 +1,6 @@
 import { AlertIcon, DocumentIcon } from "../components/icons.tsx";
 import type { PageKind, ReadMethod } from "../pdf/page-kind.ts";
+import type { OcrState } from "../results/useDocumentResults.ts";
 
 /** 自動で判別したページの種類の短い名前 */
 const KIND_LABELS: Record<PageKind, string> = {
@@ -48,13 +49,31 @@ export function ReadMethodStatus(props: Props) {
   );
 }
 
-/** OCR で読むページの上に出す注意 */
-export function OcrNotice({ kind, overridden }: { kind: PageKind; overridden: boolean }) {
+function ocrStatusText(state: OcrState | undefined): string {
+  switch (state?.status) {
+    case "running":
+      return `読み取り中… ${Math.round(state.progress * 100)}%`;
+    case "done":
+      return `読み取りました(${(state.reading.elapsedMs / 1000).toFixed(1)}秒)。`;
+    case "failed":
+      return "読み取りに失敗しました。";
+    default:
+      return "前のページの読み取りが終わるのを待っています。";
+  }
+}
+
+/** OCR で読むページの上に出す注意と、OCR の進み具合 */
+export function OcrNotice({ kind, overridden, state }: { kind: PageKind; overridden: boolean; state?: OcrState }) {
   const reason = overridden ? "手動でOCRに切り替えたため" : OCR_REASONS[kind];
   return (
     <div className="ocr-notice" role="note">
       <AlertIcon size={18} />
-      <span>このページは{reason}、OCRで文字を読み取ります。読み取った値は必ず画面で確認してください。(OCRは準備中です)</span>
+      <span>
+        このページは{reason}、OCRで文字を読み取ります。読み取った値は必ず画面で確認してください。
+        <span role="status" aria-live="polite">
+          {ocrStatusText(state)}
+        </span>
+      </span>
     </div>
   );
 }

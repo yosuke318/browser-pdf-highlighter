@@ -18,9 +18,14 @@ export function convertValue(type: FieldType, raw: string): Converted | null {
   const normalized = normalizeText(raw).text;
   if (normalized === "") return null;
   switch (type) {
-    case "text":
+    case "text": {
+      // 記号だけの文字列(OCR が罫線の切れ端や汚れを「。」「|」と読んだものなど)は値にしない
+      if (!/[\p{L}\p{N}]/u.test(normalized)) return null;
+      // 前後に付いた句読点や縦線(OCR の汚れ)は除く。括弧や長音記号は値の一部なので残す
+      const trimmed = raw.replace(/^[\s。、・|｜_.,]+|[\s。、・|｜_.,]+$/gu, "");
       // 康熙部首・全角英数字などは通常の文字にするが、空白は残す(氏名の「山田 太郎」など)
-      return { value: normalizeForDisplay(raw), warnings: [] };
+      return { value: normalizeForDisplay(trimmed), warnings: [] };
+    }
     case "money": {
       const money = parseMoney(raw);
       return money ? { value: money.yen, warnings: [] } : null;
