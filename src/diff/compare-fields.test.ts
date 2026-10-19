@@ -151,7 +151,12 @@ describe("表(他の借入)の比較", () => {
     const result = compareDocuments(
       homeLoan,
       side({ otherDebts: v([duplicateLoan1, duplicateLoan2]) }),
-      side({ otherDebts: v([{ ...duplicateLoan1, balance: 1_100_000 }, { ...duplicateLoan2, annualRepayment: 250_000 }]) }),
+      side({
+        otherDebts: v([
+          { ...duplicateLoan1, balance: 1_100_000 },
+          { ...duplicateLoan2, annualRepayment: 250_000 },
+        ]),
+      }),
     );
     const rows = result.fields.filter((f) => f.key.startsWith("otherDebts["));
     expect(rows.map((r) => [r.label, r.status])).toEqual([
