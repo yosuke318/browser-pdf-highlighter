@@ -30,3 +30,31 @@ jobs:
       - run: npm run check:build
       # PDFの処理中に外部ドメインへの通信がないこと(E2E。ランナーに入っている Google Chrome を使う)
       - run: npm run test:e2e
+      # チェックをすべて通ったビルドを、そのままデプロイに使う
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
+
+  # main にpushされ、上のチェックがすべて通ったら Cloudflare Pages にデプロイする(docs/deploy-cloudflare.md)。
+  # リポジトリの変数 CLOUDFLARE_PAGES_PROJECT(Pages のプロジェクト名)を設定するまでは動かない
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.CLOUDFLARE_PAGES_PROJECT != ''
+    runs-on: ubuntu-latest
+    # デプロイが重なったときは、順番に行う(途中で止めない)
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }} --branch=main
