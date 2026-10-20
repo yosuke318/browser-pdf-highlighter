@@ -122,6 +122,22 @@ describe("源泉徴収票の書類定義", () => {
     expect(extract(page).birthDate).toBeUndefined();
   });
 
+  it("「年分」が読めなくても、「令和」の横の数字を年にする", () => {
+    const page = slip();
+    page.segments = page.segments.filter((s) => s.text !== "年分");
+    expect(extract(page).incomeYear).toBe(2025);
+    // 「令和」と数字が1つの文字列になっていてもよい
+    page.segments = page.segments.filter((s) => s.text !== "令和" && s.text !== "7");
+    page.segments.push(cell("令和 7", 168, 790, 12));
+    expect(extract(page).incomeYear).toBe(2025);
+  });
+
+  it("「令和」の横の数字を探すときは、ページの上にあるもの(タイトル)を使う", () => {
+    const page = slip([cell("(摘要)", 38, 600), cell("令和", 80, 600), cell("6", 100, 600), cell("年中途就職", 110, 600)]);
+    page.segments = page.segments.filter((s) => s.text !== "年分");
+    expect(extract(page).incomeYear).toBe(2025);
+  });
+
   it("令和元年分も年に変換する", () => {
     const page = slip();
     page.segments = page.segments.filter((s) => s.text !== "7");
