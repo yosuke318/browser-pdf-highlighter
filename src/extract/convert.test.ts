@@ -31,6 +31,13 @@ describe("convertValue", () => {
     expect(convertValue("text", "|")).toBeNull();
   });
 
+  it("別々のマスの元号・年・月・日をつなげた、空白区切りの日付を読む", () => {
+    expect(convertValue("date", "昭和 63 4 15")).toEqual({ value: "1988-04-15", warnings: [] });
+    expect(convertValue("date", "平成 元 1 8")).toEqual({ value: "1989-01-08", warnings: [] });
+    // 区切りのない数字の並びは、どこで区切るか分からないので読まない
+    expect(convertValue("date", "昭和63415")).toBeNull();
+  });
+
   it("変換不能な値は null を返す", () => {
     expect(convertValue("yearMonth", "2024-13")).toBeNull();
     expect(convertValue("number", "3,500円")).toBeNull();

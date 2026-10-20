@@ -12,6 +12,11 @@ export interface Converted {
 
 const ERA = "令和|平成|昭和|大正|明治|[令平昭大明RHSTM]";
 const DATE_PREFIX = new RegExp(`^(?:(?:${ERA})(?:元|\\d{1,2})|\\d{4})[年./-]\\d{1,2}[月./-]\\d{1,2}日?`, "i");
+/**
+ * 元号・年・月・日が空白で区切られただけの日付。源泉徴収票の生年月日の欄のように、「年」「月」「日」が
+ * 値の上の見出しにだけ書かれ、値は「昭和」「63」「4」「15」と別々のマスに入っているもの(マスをつなげると空白区切りになる)
+ */
+const SPACED_DATE = new RegExp(`^((?:${ERA})\\s*(?:元|\\d{1,2})|\\d{4})\\s+(\\d{1,2})\\s+(\\d{1,2})$`, "i");
 const YEAR_MONTH = new RegExp(`^((?:${ERA})(?:元|\\d{1,2})|\\d{4})[年./-](\\d{1,2})月?$`, "i");
 
 export function convertValue(type: FieldType, raw: string): Converted | null {
@@ -32,7 +37,11 @@ export function convertValue(type: FieldType, raw: string): Converted | null {
     }
     case "date": {
       // 「平成8年9月3日(30歳)」のように後ろに年齢などが続くときは、先頭の日付の部分だけを使う
-      const date = parseDate(raw) ?? parseDate(DATE_PREFIX.exec(normalized)?.[0] ?? "");
+      const spaced = SPACED_DATE.exec(raw.normalize("NFKC").trim());
+      const date =
+        parseDate(raw) ??
+        parseDate(DATE_PREFIX.exec(normalized)?.[0] ?? "") ??
+        (spaced ? parseDate(`${spaced[1]}年${spaced[2]}月${spaced[3]}日`) : null);
       return date ? { value: date.iso, warnings: date.warnings } : null;
     }
     case "year": {
