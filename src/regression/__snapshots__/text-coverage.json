@@ -92,5 +92,12 @@
       "overlay(ocr)"
     ],
     "ocrOnly": true
+  },
+  "withholding-slip/table.pdf": {
+    "pages": [
+      "text(pdf)"
+    ],
+    "found": "11/11",
+    "notFound": []
   }
 }

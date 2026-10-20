@@ -222,6 +222,20 @@ describe("見出しで区切った範囲", () => {
     expect(toValues(result)).toEqual({ applicant: { name: "田中美咲" }, guarantor: { name: "田中健二" } });
   });
 
+  it("同じ行で別々のセルに分かれた見出しも、つなげて探す(OCR の「給与所得」「の源泉徴収票」など)", () => {
+    const segments = [
+      cell("給与所得", 100, 760, 0.9),
+      cell("の源泉徴収票", 150, 760, 0.9),
+      cell("氏名", 50, 700),
+      cell("山田 太郎", 120, 700),
+    ];
+    const { field } = run(
+      { name: [{ kind: "label", labels: ["氏名"], direction: "right", section: { start: ["給与所得の源泉徴収票"] } }] },
+      [page(segments)],
+    );
+    expect(field("name")?.value).toBe("山田 太郎");
+  });
+
   it("見出しが見つからなければ、その範囲には値がない", () => {
     const { field } = run(
       { "guarantor.name": [{ kind: "label", labels: ["氏名"], direction: "right", section: { start: ["連帯保証人"] } }] },
@@ -443,6 +457,42 @@ describe("欄の並び順で値を取る(column)", () => {
   });
 });
 
+describe("縦書きの欄の名前", () => {
+  it("1文字ずつ縦に並んだセルをつなげて欄の名前とみなし、その右の値を取る", () => {
+    // 「氏」「名」が縦に並び、フリガナの行と氏名の行にまたがっている
+    const segments = [
+      cell("氏", 50, 712, 0.9),
+      cell("名", 50, 696, 0.9),
+      cell("ヤマダ タロウ", 120, 712),
+      cell("山田 太郎", 120, 696),
+    ];
+    const label = { kind: "label", labels: ["氏名"], direction: "right" } as const;
+    expect(run({ name: [label] }, [page(segments)]).field("name")?.value).toBe("ヤマダ タロウ");
+    // avoid に合う値(カタカナだけのフリガナ)は、ほかに候補がないときだけ使う
+    const avoid = /^[\p{Script=Katakana}ー]+$/u;
+    expect(run({ name: [{ ...label, avoid }] }, [page(segments)]).field("name")?.value).toBe("山田 太郎");
+    expect(run({ name: [{ ...label, avoid }] }, [page(segments.slice(0, 3))]).field("name")?.value).toBe("ヤマダ タロウ");
+  });
+
+  it("縦に離れすぎたセルや、横にずれたセルはつなげない", () => {
+    const far = [cell("氏", 50, 750, 0.9), cell("名", 50, 696, 0.9), cell("山田 太郎", 120, 696)];
+    const shifted = [cell("氏", 50, 712, 0.9), cell("名", 80, 696, 0.9), cell("山田 太郎", 120, 696)];
+    for (const segments of [far, shifted]) {
+      expect(
+        run({ name: [{ kind: "label", labels: ["氏名"], direction: "right" }] }, [page(segments)]).field("name")?.found,
+      ).toBe(false);
+    }
+  });
+});
+
+describe("画像の様式に値の文字を重ねたページ", () => {
+  it("PDF の文字の値を、OCR の文字(様式の欄の名前の読み違いなど)より先に使う", () => {
+    const segments = [cell("氏名", 50, 700, 0.9), cell("(ラガカナ}", 80, 700, 0.9), cell("山田 太郎", 200, 700)];
+    const { field } = run({ name: [{ kind: "label", labels: ["氏名"], direction: "right" }] }, [page(segments)]);
+    expect(field("name")).toMatchObject({ value: "山田 太郎", source: "pdf" });
+  });
+});
+
 describe("パターンの探し方の指定", () => {
   const company = /((?:株式会社)[^\s()]+)/;
 
@@ -454,6 +504,25 @@ describe("パターンの探し方の指定", () => {
     expect(
       run({ employerName: [{ kind: "pattern", pattern: company, perCell: true }] }, [page(cells)]).field("employerName")?.value,
     ).toBe("株式会社サンプル商事");
+  });
+
+  it("occurrence: 読む順(上から下)で何番目に見つかった値を使うかを決める", () => {
+    const address = /(見本県.*)/;
+    // 配列の順ではなく、ページの上にあるものから数える
+    const cells = [cell("見本県見本市中央1丁目", 100, 300), cell("見本県見本市サンプル町1丁目", 100, 700)];
+    const nth = (occurrence: number) =>
+      run({ address: [{ kind: "pattern", pattern: address, perCell: true, occurrence }] }, [page(cells)]).field("address");
+    expect(nth(1)?.value).toBe("見本県見本市サンプル町1丁目");
+    expect(nth(2)?.value).toBe("見本県見本市中央1丁目");
+    expect(nth(3)?.found).toBe(false);
+  });
+
+  it("cellSeparator: セルの境目を表す文字を入れて、別々のセルの数字を区別する", () => {
+    const cells = [cell("昭和", 100, 300), cell("63", 140, 300), cell("4", 170, 300), cell("15", 190, 300)];
+    const pattern = /((?:昭和) \d{1,2} \d{1,2} \d{1,2})/;
+    const { field } = run({ birthDate: [{ kind: "pattern", pattern, cellSeparator: " " }] }, [page(cells)]);
+    expect(field("birthDate")).toMatchObject({ value: "1988-04-15", rawText: "昭和 63 4 15" });
+    expect(field("birthDate")?.bbox).toHaveLength(4);
   });
 
   it("pdfTextOnly: OCR で読んだ文字は使わない", () => {

@@ -114,6 +114,15 @@
     "note": "様式(罫線・欄の名前)が画像で、値だけが文字として重なったPDF。金額は空白区切りで、先頭の桁などが離れている"
   },
   {
+    "file": "withholding-slip/table.pdf",
+    "document": "源泉徴収票(令和7年分・表の形の電子交付)",
+    "pages": [
+      "text"
+    ],
+    "expected": "withholding-slip/expected.json",
+    "note": "国税庁の様式ではなく、欄の名前の右に値を書いた表の形のPDF"
+  },
+  {
     "file": "pdf-kinds/mixed.pdf",
     "document": "確定申告書 第一表(令和7年分) + 源泉徴収票(令和7年分)",
     "pages": [

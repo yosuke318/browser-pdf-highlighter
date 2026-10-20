@@ -9,6 +9,9 @@ import { yamadaIncome2025 as inc, yamada } from "../people.ts";
 // - 金額はカンマではなく空白で区切り、様式の「千」「円」の区切りに合わせて置く。
 //   先頭の桁だけが離れて別の文字列になっているもの、「千」をはさんで離れているものがある
 // - A4横のページの右半分に源泉徴収票がある
+// - 「住所又は居所」「氏名」の欄の名前は縦書き。「氏名」はフリガナの行と氏名の行にまたがり、OCR では1文字ずつ読まれる
+// - 住所の上に郵便番号が別の行で入っている
+// - 生年月日は、元号・年・月・日が別々のマスに入り、「年」「月」「日」は値の上の見出しにだけ書かれている
 // 値の文字は class="v" の要素に入れる。生成スクリプトは、値を隠した画像と、値の文字の位置を別々に取り出す。
 
 const birth = toWareki(yamada.birthDate);
@@ -44,6 +47,9 @@ body { width: 297mm; height: 210mm; }
 .slip .marks { position: absolute; top: 0.3mm; left: 0.8mm; right: 0.8mm; font-size: 4.5pt; color: #333; display: flex; justify-content: space-between; }
 .slip .sep { font-size: 4.5pt; color: #333; margin: 0 2.5mm; }
 .vertical { writing-mode: vertical-rl; text-align: center; width: 4mm; }
+.spread { letter-spacing: 2mm; }
+.slip .kana-label { font-size: 4.5pt; color: #333; margin-right: 1.5mm; }
+.slip .v.kana { font-size: 6pt; }
 `;
 
 const marks = (inner = "") => `<span class="marks"><span>${inner}</span><span>千</span><span>円</span></span>`;
@@ -54,14 +60,17 @@ const body = `
   <table>
     <tr>
       <th rowspan="2" class="vertical">支払を受ける者</th>
-      <th style="width: 14mm">住所又は居所</th>
-      <td colspan="3"><span class="v">${yamada.address}</span></td>
+      <th class="vertical">住所又は居所</th>
+      <td colspan="3"><span class="v">〒000-0000</span><br><span class="v">${yamada.address}</span></td>
     </tr>
     <tr>
       <th>(役職名)</th>
       <td><span class="v">${yamada.employer.position}</span></td>
-      <th style="width: 8mm">氏名</th>
-      <td><span class="v">${yamada.name}</span></td>
+      <th class="vertical spread">氏名</th>
+      <td>
+        <div><span class="kana-label">(フリガナ)</span><span class="v kana">${yamada.kana}</span></div>
+        <div><span class="v">${yamada.name}</span></div>
+      </td>
     </tr>
   </table>
   <table style="margin-top: -0.25mm">
@@ -102,8 +111,11 @@ const body = `
       <th colspan="4" class="center">受給者生年月日</th>
     </tr>
     <tr>
-      <td class="center"><span class="v">${birth.era}</span></td><td class="center"><span class="v">${birth.year}</span> 年</td>
-      <td class="center"><span class="v">${birth.month}</span> 月</td><td class="center"><span class="v">${birth.day}</span> 日</td>
+      <th class="center">明・大・昭・平・令</th><th class="center">年</th><th class="center">月</th><th class="center">日</th>
+    </tr>
+    <tr>
+      <td class="center"><span class="v">${birth.era}</span></td><td class="center"><span class="v">${birth.year}</span></td>
+      <td class="center"><span class="v">${birth.month}</span></td><td class="center"><span class="v">${birth.day}</span></td>
     </tr>
   </table>
   <table style="margin-top: -0.25mm">

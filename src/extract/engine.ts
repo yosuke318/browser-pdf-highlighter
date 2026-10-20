@@ -79,6 +79,13 @@ const MAX_CELL_GAP = 3;
 const UNIT_ONLY = /^(万円|千円|円|万|千)$/;
 /** 2番目以降のルールで取れた値の確からしさを、1つ下がるごとにこれだけ下げる */
 const RULE_PENALTY = 0.1;
+/** avoid に合う値の候補の距離に足す値(向きの優先順位より大きくする) */
+const AVOIDED = 1e9;
+/**
+ * PDF の文字と OCR の文字が混ざったページ(画像の様式に値の文字を重ねたPDF)で、OCR の文字だけでできた値の候補の
+ * 距離に足す値。このページの値は PDF の文字で、OCR の文字は様式の欄の名前なので、PDF の文字の候補を先に使う
+ */
+const OCR_ON_OVERLAY = 1e8;
 
 // ---- 文字列と座標の補助 ----
 
@@ -125,9 +132,95 @@ function inRelativeRect(segment: TextSegment, rect: RelativeRect, view: Extracti
   return x >= rect.x0 && x <= rect.x1 && y >= rect.y0 && y <= rect.y1;
 }
 
+// ---- 分かれて読まれた欄の名前・見出しをつなげる ----
+
+/** つなげて作ったセルの、もとのセルと文字の高さ */
+const joinedParts = new WeakMap<TextSegment, { members: TextSegment[]; charHeight: number }>();
+
+function joinSegments(members: TextSegment[], separator: string): TextSegment {
+  const charBoxes: Rect[] = [];
+  members.forEach((m, i) => {
+    if (i > 0 && separator) charBoxes.push(m.bbox);
+    charBoxes.push(...m.charBoxes);
+  });
+  const joined: TextSegment = {
+    text: members.map((m) => m.text).join(separator),
+    bbox: unionAll(members.map((m) => m.bbox)),
+    charBoxes,
+    confidence: Math.min(...members.map((m) => m.confidence)),
+    source: members.some((m) => m.source === "ocr") ? "ocr" : "pdf",
+  };
+  joinedParts.set(joined, { members, charHeight: Math.max(...members.map((m) => height(m.bbox))) });
+  return joined;
+}
+
+/** 欄の名前の文字の高さ。縦につなげたセルは、1文字の高さ */
+function charHeightOf(segment: TextSegment): number {
+  return joinedParts.get(segment)?.charHeight ?? height(segment.bbox);
+}
+
+/** 縦書きの欄の名前とみなす、1文字ずつのセルの間の最大の距離(文字の高さの何倍か) */
+const MAX_VERTICAL_GAP = 2.5;
+/** 縦につなげるセルの最大の数 */
+const MAX_VERTICAL_CELLS = 8;
+
+/**
+ * 縦書きの欄の名前(源泉徴収票の「氏名」など)は、OCR では1文字ずつ別のセルとして読まれる。
+ * 1〜2文字のセルが縦に並んでいれば、上から順につなげたセルを作る(並びの途中から始まるもの・途中で終わるものも作る)。
+ * もとのセルはそのまま残し、つなげたセルは欄の名前を探すときにだけ使う
+ */
+function verticalLabels(segments: readonly TextSegment[]): TextSegment[] {
+  const short = segments
+    .filter((s) => {
+      const length = [...norm(s).text].length;
+      return length >= 1 && length <= 2;
+    })
+    .sort((p, q) => q.bbox.y1 - p.bbox.y1);
+  const used = new Set<TextSegment>();
+  const joined: TextSegment[] = [];
+  for (const start of short) {
+    if (used.has(start)) continue;
+    const chain = [start];
+    for (let last = start; chain.length < MAX_VERTICAL_CELLS; ) {
+      const h = height(last.bbox);
+      const next = short.find(
+        (s) =>
+          !used.has(s) &&
+          !chain.includes(s) &&
+          s.bbox.y1 <= last.bbox.y0 + h / 3 &&
+          last.bbox.y0 - s.bbox.y1 <= MAX_VERTICAL_GAP * h &&
+          Math.abs(centerX(s.bbox) - centerX(last.bbox)) <= h / 2,
+      );
+      if (!next) break;
+      chain.push(next);
+      last = next;
+    }
+    if (chain.length < 2) continue;
+    for (const s of chain) used.add(s);
+    for (let i = 0; i < chain.length; i++) {
+      for (let j = i + 2; j <= chain.length; j++) joined.push(joinSegments(chain.slice(i, j), ""));
+    }
+  }
+  return joined;
+}
+
+/**
+ * 見出しを探す。見つからなければ、同じ行で別々のセルに分かれた見出し(OCR の「給与所得」「の源泉徴収票」など)と、
+ * 縦書きで1文字ずつ読まれた見出しも探す
+ */
 function findHeading(segments: TextSegment[], headings: readonly string[]): TextSegment | undefined {
   const targets = headings.map((h) => normalizeText(h).text);
-  return segments.filter((s) => targets.some((t) => norm(s).text.includes(t))).sort((p, q) => q.bbox.y1 - p.bbox.y1)[0];
+  const find = (candidates: readonly TextSegment[]) =>
+    candidates.filter((s) => targets.some((t) => norm(s).text.includes(t))).sort((p, q) => q.bbox.y1 - p.bbox.y1)[0];
+  return (
+    find(segments) ??
+    find([
+      ...groupLines(segments)
+        .filter((line) => line.segments.length >= 2)
+        .map((line) => joinSegments(line.segments, "")),
+      ...verticalLabels(segments),
+    ])
+  );
 }
 
 function inSection(segments: TextSegment[], section: Section): TextSegment[] {
@@ -136,7 +229,7 @@ function inSection(segments: TextSegment[], section: Section): TextSegment[] {
   const below = segments.filter((s) => centerY(s.bbox) <= start.bbox.y1);
   const end = section.end
     ? findHeading(
-        below.filter((s) => s !== start && s.bbox.y1 < start.bbox.y0),
+        below.filter((s) => s.bbox.y1 < start.bbox.y0),
         section.end,
       )
     : undefined;
@@ -282,8 +375,9 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
   const inline = rule.inline ?? type !== "text";
 
   const sideHeadings = rule.sideHeading?.map((h) => normalizeText(h).text);
+  const overlay = page.segments.some((s) => s.source === "pdf") && page.segments.some((s) => s.source === "ocr");
 
-  for (const anchor of segments) {
+  for (const anchor of [...segments, ...verticalLabels(segments)]) {
     const n = norm(anchor);
     const ocr = anchor.source === "ocr";
     const label = labels.find(
@@ -313,10 +407,11 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
       }
     }
 
-    const h = height(anchor.bbox);
+    const h = charHeightOf(anchor);
+    const members = joinedParts.get(anchor)?.members ?? [anchor];
     directions.forEach((direction, dirIndex) => {
       const maxDistance = (rule.maxDistance ?? DEFAULT_MAX_DISTANCE[direction]) * h;
-      const others = segments.filter((s) => s !== anchor);
+      const others = segments.filter((s) => !members.includes(s));
       // 値の始まりの候補を、近い順に並べる
       const starts =
         direction === "right"
@@ -347,6 +442,9 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
             toCandidate(type, rule, page.pageNumber, row.slice(0, withUnit).map(whole), gap + dirIndex * 1e6) ??
             (withUnit !== k ? toCandidate(type, rule, page.pageNumber, row.slice(0, k).map(whole), gap + dirIndex * 1e6) : null);
           if (c) {
+            // avoid に合う値は、ほかの候補がないときだけ使う
+            if (rule.avoid?.test(normalizeText(c.raw).text)) c.distance += AVOIDED;
+            if (overlay && c.segments.every((x) => x.source === "ocr")) c.distance += OCR_ON_OVERLAY;
             candidates.push(c);
             break;
           }
@@ -357,21 +455,32 @@ function labelCandidates(rule: LabelRule, type: FieldType, page: ExtractionPage)
   return candidates;
 }
 
+/** 読む順(上から下、同じ行なら左から右)に並べる */
+function readingOrder(segments: readonly TextSegment[]): TextSegment[] {
+  return groupLines(segments).flatMap((line) => line.segments);
+}
+
 function patternCandidates(rule: PatternRule, type: FieldType, page: ExtractionPage): Candidate[] {
   const flags = new Set([...rule.pattern.flags, "g", "d"]);
   const pattern = new RegExp(rule.pattern.source, [...flags].join(""));
   const candidates: Candidate[] = [];
 
-  const lines = rule.perCell ? scope(page, rule).map((segment) => ({ segments: [segment] })) : groupLines(scope(page, rule));
+  const lines = rule.perCell
+    ? readingOrder(scope(page, rule)).map((segment) => ({ segments: [segment] }))
+    : groupLines(scope(page, rule));
   lines.forEach((line, lineIndex) => {
-    // 行の正規化した文字列と、各文字がどのセルの何文字目から来たか
+    // 行の正規化した文字列と、各文字がどのセルの何文字目から来たか(セルの境目に入れた文字は -1)
     let text = "";
     const refs: { segment: TextSegment; source: number }[] = [];
-    for (const segment of line.segments) {
+    line.segments.forEach((segment, i) => {
+      if (i > 0 && rule.cellSeparator) {
+        for (const _ of rule.cellSeparator) refs.push({ segment, source: -1 });
+        text += rule.cellSeparator;
+      }
       const n = norm(segment);
       text += n.text;
       for (const source of n.sourceIndex) refs.push({ segment, source });
-    }
+    });
 
     for (const match of text.matchAll(pattern)) {
       const range = match.indices?.groups?.value ?? match.indices?.[1] ?? match.indices?.[0];
@@ -379,7 +488,7 @@ function patternCandidates(rule: PatternRule, type: FieldType, page: ExtractionP
       // 正規表現の位置はコードユニット単位なので、コードポイント単位に直す
       const start = [...text.slice(0, range[0])].length;
       const end = start + [...text.slice(range[0], range[1])].length;
-      const hit = refs.slice(start, end);
+      const hit = refs.slice(start, end).filter((r) => r.source >= 0);
       const parts = [...new Set(hit.map((r) => r.segment))].map((segment) => {
         const sources = hit.filter((r) => r.segment === segment).map((r) => r.source);
         return { ...sliceSegment(segment, Math.min(...sources), Math.max(...sources) + 1), segment };
@@ -388,7 +497,10 @@ function patternCandidates(rule: PatternRule, type: FieldType, page: ExtractionP
       if (c) candidates.push(c);
     }
   });
-  return candidates;
+  if (rule.occurrence === undefined) return candidates;
+  // 読む順で何番目かを選ぶ(同じ行の中では、見つかった順)
+  const nth = candidates.map((c, i) => ({ c, i })).sort((p, q) => p.c.distance - q.c.distance || p.i - q.i)[rule.occurrence - 1];
+  return nth ? [{ ...nth.c, distance: 0 }] : [];
 }
 
 function regionCandidates(rule: RegionRule, type: FieldType, page: ExtractionPage): Candidate[] {

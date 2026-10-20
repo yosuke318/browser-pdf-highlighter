@@ -15,6 +15,7 @@ import { taxCertificate } from "./templates/tax-certificate.ts";
 import { taxReturn } from "./templates/tax-return.ts";
 import { withholdingSlip } from "./templates/withholding-slip.ts";
 import { withholdingSlipOverlay } from "./templates/withholding-slip-overlay.ts";
+import { withholdingSlipTable } from "./templates/withholding-slip-table.ts";
 
 const OUT_DIR = join(import.meta.dirname, "../../samples");
 
@@ -101,6 +102,18 @@ async function main(): Promise<void> {
       note: "様式(罫線・欄の名前)が画像で、値だけが文字として重なったPDF。金額は空白区切りで、先頭の桁などが離れている",
     });
     console.log(`生成: ${withholdingSlipOverlay.title}`);
+
+    // 源泉徴収票の内容を「欄の名前 | 値」の表で出力したもの
+    const table = await makeReproducible(await renderTextPdf(browser, withholdingSlipTable.html()));
+    await writeFile(join(OUT_DIR, withholdingSlipTable.file), table);
+    manifest.push({
+      file: withholdingSlipTable.file,
+      document: withholdingSlipTable.title,
+      pages: ["text"],
+      expected: `${withholdingSlipTable.documentId}/expected.json`,
+      note: "国税庁の様式ではなく、欄の名前の右に値を書いた表の形のPDF",
+    });
+    console.log(`生成: ${withholdingSlipTable.title}`);
 
     // 作成コーナーで作った確定申告書(テキストPDF)に、スキャンした源泉徴収票を添付した想定
     const taxReturnTextPdf = textPdfs.get(taxReturn.id);
