@@ -107,3 +107,21 @@ export function AlertIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function QuillIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M20 4c-6 1-10 5-12 11l-2 5" />
+      <path d="M20 4c-1 6-5 10-11 12" />
+      <path d="M9 15l-3 3" />
+    </Svg>
+  );
+}
+
+export function StarIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3l1.8 5.4H19l-4.3 3.2 1.6 5.4L12 13.8 7.7 17l1.6-5.4L5 8.4h5.2z" />
+    </Svg>
+  );
+}

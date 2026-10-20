@@ -2,6 +2,8 @@ import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { AlertIcon } from "../components/icons.tsx";
 import { convertValue } from "../extract/convert.ts";
 import { CATEGORIES, categoryOf } from "../highlight/categories.ts";
+import { useWording } from "../theme/ThemeContext.tsx";
+import type { Wording } from "../theme/theme.ts";
 import { editableText, formatValue, INVALID_INPUT, originalNotation } from "./format.ts";
 import type { ManualEdit, ReviewedField } from "./review.ts";
 
@@ -20,22 +22,22 @@ interface Props {
 
 const STATUS_LABELS = {
   confirmed: "確認済み",
-  edited: "手動修正済み",
   attention: "要確認",
   unconfirmed: "未確認",
   missing: "未検出",
 } as const;
 
-function statusText(item: ReviewedField): string {
+function statusText(item: ReviewedField, wording: Wording): string {
   if (item.status === "attention" && item.field.confidence !== undefined && item.field.confidence < 1) {
-    return `${item.field.source === "ocr" ? "OCR " : ""}要確認 ${Math.round(item.field.confidence * 100)}%`;
+    return `${item.field.source === "ocr" ? wording.ocrPrefix : ""}要確認 ${Math.round(item.field.confidence * 100)}%`;
   }
-  return STATUS_LABELS[item.status];
+  return item.status === "edited" ? wording.edited : STATUS_LABELS[item.status];
 }
 
 /** 抽出結果の一覧の1項目。値・状態・確認と修正の操作 */
 export function FieldItem({ item, selected, onSelect, onConfirm, onUnconfirm, onEdit, onRevert, onPickRange }: Props) {
   const { field, status } = item;
+  const wording = useWording();
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +147,7 @@ export function FieldItem({ item, selected, onSelect, onConfirm, onUnconfirm, on
             )}
             {editable && status !== "missing" && (
               <button type="button" className="link-button" onClick={startEdit}>
-                修正する
+                {wording.edit}
               </button>
             )}
             {editable && status === "missing" && (
@@ -166,7 +168,7 @@ export function FieldItem({ item, selected, onSelect, onConfirm, onUnconfirm, on
           </div>
         )}
       </div>
-      <span className={`badge field-item__status field-item__status--${status}`}>{statusText(item)}</span>
+      <span className={`badge field-item__status field-item__status--${status}`}>{statusText(item, wording)}</span>
       <span className="field-item__page mono">{item.page ? `p.${item.page}` : "—"}</span>
     </li>
   );

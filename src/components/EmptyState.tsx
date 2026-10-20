@@ -1,3 +1,4 @@
+import { useWording } from "../theme/ThemeContext.tsx";
 import { LockIcon, UploadIcon } from "./icons.tsx";
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 
 /** PDFを読み込む前の画面。ドロップはウインドウ全体で受け取る(useFileDrop) */
 export function EmptyState({ onChooseFile }: Props) {
+  const wording = useWording();
   return (
     <div className="empty-state">
       <div className="drop-area">
@@ -13,7 +15,7 @@ export function EmptyState({ onChooseFile }: Props) {
           <UploadIcon size={56} />
         </span>
         <div className="drop-area__text">
-          <h1>PDFをここにドロップ</h1>
+          <h1>{wording.dropTitle}</h1>
           <p>
             源泉徴収票・課税証明書・住民税決定通知書・確定申告書・
             <br />

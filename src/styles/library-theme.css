@@ -1,0 +1,193 @@
+/*
+ * 「魔法の書庫」テーマ(html に data-theme="library" があるとき)。承認済みのデザイン案の値を使う。
+ * - 画面の構成・項目の色の意味・判定の記号と線の種類は標準と同じで、色と書体だけを変える
+ * - 文字と背景のコントラスト比は標準と同じく 4.5 以上。金色は差が小さいので、枠線と飾りだけに使う
+ * - 見出しの明朝体も、npm パッケージのファイルを同じオリジンから配信する。標準テーマでは使わないので読み込まれない
+ * - 印刷は、どちらのテーマでも標準の見た目にする(このファイルの指定は画面だけに当てる)
+ */
+@import "@fontsource/shippori-mincho-b1/700.css";
+
+@media screen {
+  :root[data-theme="library"] {
+    --color-bg: #efe4cb;
+    --color-surface: #f8f1df;
+    --color-surface-muted: #f3ead4;
+    --color-line: #c9b48a;
+    --color-line-strong: #9c8456;
+    --color-accent: #7a1e2c;
+    --color-accent-hover: #5b1520;
+    --color-ink: #2a1c10;
+    --color-ink-2: #4e3b26;
+    --color-ink-3: #6b5539;
+    --color-disabled: #8c7a60;
+    --color-safe: #2e5638;
+    --color-safe-bg: #dde6cf;
+    --color-ocr: #7a4a0c;
+    --color-ocr-bg: #f3dfb5;
+    --color-warning: #6b3a00;
+    --color-warning-bg: #f6e7c4;
+    --color-warning-line: #e0c996;
+    --color-error: #8f2a0a;
+    --color-error-bg: #f2d3c2;
+
+    /* テーマだけで使う色 */
+    --library-gold: #a9802a;
+    --library-gold-light: #e2c277;
+    --library-header: #2a1c10;
+    --library-header-raised: #3a2918;
+    --library-header-line: #8c7246;
+    --library-header-ink: #f3e6c8;
+    --library-header-ink-2: #d9c69e;
+    --font-serif: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
+
+    /* 項目の種類の色。意味は標準と同じ6色の系統のまま、羊皮紙になじむよう少しくすませる */
+    --hl-name: #f2d46a;
+    --hl-name-ink: #4a3a00;
+    --hl-birth: #edb1c6;
+    --hl-birth-ink: #5e1735;
+    --hl-work: #a9cde3;
+    --hl-work-ink: #0e3b57;
+    --hl-money: #ebb27a;
+    --hl-money-ink: #5a2c00;
+    --hl-address: #a9d3ae;
+    --hl-address-ink: #123f1d;
+    --hl-property: #c9b6e6;
+    --hl-property-ink: #33215f;
+    --hl-other: #d6ccb6;
+    --hl-other-ink: #3a2e20;
+    --hl-low-confidence: #8a5a12;
+
+    --diff-changed: #f3dfa0;
+    --diff-changed-ink: #5a3d00;
+    --diff-added: #cfe0ee;
+    --diff-added-ink: #123e66;
+    --diff-removed: #efc9be;
+    --diff-removed-ink: #7a2410;
+    --diff-notation: #e6d8b8;
+    --diff-notation-ink: #4e3b26;
+    --diff-same: #dde6cf;
+    --diff-same-ink: #2e5638;
+  }
+
+  /* 見出しだけを明朝体にする。本文と数値は読みやすさを優先して標準と同じ書体 */
+  [data-theme="library"] :is(h1, h2, .brand__name, .document-type__current) {
+    font-family: var(--font-serif);
+    letter-spacing: 0.04em;
+  }
+
+  [data-theme="library"] .brand__name {
+    font-size: 18px;
+  }
+
+  /* ヘッダー: 濃い革の色と、金の二重線 */
+  [data-theme="library"] .app-header {
+    background: var(--library-header);
+    border-bottom: 3px double var(--library-gold);
+    color: var(--library-header-ink);
+  }
+
+  [data-theme="library"] .app-header .brand__icon,
+  [data-theme="library"] .app-header .link-button {
+    color: var(--library-gold-light);
+  }
+
+  [data-theme="library"] .app-header .link-button:hover {
+    color: var(--library-header-ink);
+  }
+
+  [data-theme="library"] .app-header .file-name {
+    color: var(--library-header-ink-2);
+  }
+
+  [data-theme="library"] .app-header :is(.button, .icon-button) {
+    border-color: var(--library-header-line);
+    background: var(--library-header-raised);
+    color: var(--library-header-ink);
+  }
+
+  [data-theme="library"] .app-header :is(.button, .icon-button):disabled {
+    color: #a8957a;
+  }
+
+  [data-theme="library"] .app-header .button:hover:not(:disabled) {
+    border-color: var(--library-gold-light);
+  }
+
+  [data-theme="library"] .app-header .button--primary {
+    border-color: var(--library-gold-light);
+    background: var(--color-accent);
+    color: #fbf3e2;
+  }
+
+  [data-theme="library"] .app-header .button[aria-pressed="true"]:not(:disabled) {
+    border-color: var(--library-gold-light);
+    color: var(--library-gold-light);
+  }
+
+  [data-theme="library"] .app-header .badge--neutral {
+    background: var(--library-header-raised);
+    color: var(--library-header-ink);
+  }
+
+  [data-theme="library"] .app-header :focus-visible {
+    outline-color: var(--library-gold-light);
+  }
+
+  [data-theme="library"] .theme-toggle {
+    border-color: var(--library-header-line);
+    background: var(--library-header-raised);
+  }
+
+  [data-theme="library"] .theme-toggle__option {
+    color: var(--library-header-ink-2);
+  }
+
+  [data-theme="library"] .theme-toggle__option[aria-pressed="true"] {
+    background: var(--color-accent);
+    color: #fbf3e2;
+    box-shadow: inset 0 0 0 1px rgb(226 194 119 / 45%);
+  }
+
+  /* ページの周りと、読み込み前の枠 */
+  [data-theme="library"] .page-canvas {
+    box-shadow: 0 2px 10px rgb(60 40 15 / 25%);
+  }
+
+  [data-theme="library"] .drop-area {
+    border: 3px double var(--library-gold);
+  }
+
+  [data-theme="library"] .drop-overlay {
+    background: rgb(122 30 44 / 12%);
+  }
+
+  /* 一覧の見出しの下に、金の二重線 */
+  [data-theme="library"] :is(.result-list__header, .diff-list__header) h2 {
+    padding-bottom: var(--space-1);
+    border-bottom: 3px double var(--library-gold);
+  }
+
+  [data-theme="library"] .result-panel__card {
+    border: 1px solid var(--library-gold);
+  }
+
+  /* 項目の記号は、封蝋のような丸い形にする */
+  [data-theme="library"] :is(.highlight-chip, .highlight__symbol) {
+    border-radius: 50%;
+    font-family: var(--font-serif);
+    box-shadow: inset 0 0 0 1px rgb(42 28 16 / 25%);
+  }
+
+  [data-theme="library"] .highlight__symbol {
+    box-shadow:
+      inset 0 0 0 1px rgb(42 28 16 / 25%),
+      0 0 0 1px rgb(255 255 255 / 90%);
+  }
+
+  /* 蛍光ペンは、上下の端をぼかして、インクがにじんだように見せる */
+  [data-theme="library"] .highlight {
+    --marker-stops:
+      transparent 28%, color-mix(in srgb, var(--marker) 50%, transparent) 38%, var(--marker-fill) 52%, var(--marker-fill) 86%,
+      color-mix(in srgb, var(--marker) 40%, transparent) 95%, transparent 100%;
+  }
+}

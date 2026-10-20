@@ -3,8 +3,9 @@ import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } f
 import { DOCUMENT_TYPES } from "./classify/document-type.ts";
 import { DocumentTypeCard } from "./components/DocumentTypeCard.tsx";
 import { EmptyState } from "./components/EmptyState.tsx";
-import { AlertIcon, DocumentIcon, LockIcon, UploadIcon } from "./components/icons.tsx";
+import { AlertIcon, DocumentIcon, LockIcon, QuillIcon, UploadIcon } from "./components/icons.tsx";
 import { ResultPanel } from "./components/ResultPanel.tsx";
+import { ThemeToggle } from "./components/ThemeToggle.tsx";
 import { type ComparisonSide, compareDocuments, type FieldDiff } from "./diff/compare-fields.ts";
 import { DiffList } from "./diff/DiffList.tsx";
 import { sideFromExported, sideFromReviewed } from "./diff/sides.ts";
@@ -31,6 +32,7 @@ import { analyzePdf, type PageState, useDocumentResults } from "./results/useDoc
 import { findDocument } from "./schema/fields.ts";
 import { groupLines } from "./text/lines.ts";
 import type { Rect } from "./text/types.ts";
+import { useTheme, useWording } from "./theme/ThemeContext.tsx";
 import { PageCanvas } from "./viewer/PageCanvas.tsx";
 import { RangeSelector, type ScreenRect } from "./viewer/RangeSelector.tsx";
 import { OcrNotice, ReadMethodStatus } from "./viewer/ReadMethodStatus.tsx";
@@ -71,6 +73,8 @@ interface FieldRef {
 const titleOf = (documentId: string) => DOCUMENT_TYPES.find((t) => t.id === documentId)?.title ?? documentId;
 
 export function App() {
+  const { theme } = useTheme();
+  const wording = useWording();
   const [opened, setOpened] = useState<OpenedPdf | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -350,7 +354,7 @@ export function App() {
       setRangeError(
         currentOcr && currentOcr.status !== "done" && currentOcr.status !== "failed"
           ? "OCRで文字を読み取っています。読み取りが終わってから、もう一度選んでください。"
-          : "このページには使える文字データがないため、範囲から値を取れません。「修正する」から入力してください。",
+          : `このページには使える文字データがないため、範囲から値を取れません。「${wording.edit}」から入力してください。`,
       );
       return;
     }
@@ -422,9 +426,7 @@ export function App() {
     <div className="app">
       <header className="app-header">
         <div className="brand">
-          <span className="brand__icon">
-            <DocumentIcon size={22} />
-          </span>
+          <span className="brand__icon">{theme === "library" ? <QuillIcon size={22} /> : <DocumentIcon size={22} />}</span>
           <span className="brand__name">PDF抽出ビューア</span>
         </div>
         <button type="button" className={opened ? "button" : "button button--primary"} onClick={openDialog}>
@@ -464,6 +466,7 @@ export function App() {
           />
         )}
         <div className="spacer" />
+        <ThemeToggle />
         <div className="safe-badge">
           <LockIcon size={16} />
           PDFはこの端末の外へ送信されません
@@ -622,7 +625,7 @@ export function App() {
           )}
           {results.complete && ocrFinished < ocrTotal && (
             <p className="loading" role="status">
-              OCRで読み取っています…({ocrFinished}/{ocrTotal}ページ)。読み取りが終わったページから、抽出結果に反映します。
+              {wording.ocrRunning}({ocrFinished}/{ocrTotal}ページ)。読み取りが終わったページから、抽出結果に反映します。
             </p>
           )}
           {!previous &&
