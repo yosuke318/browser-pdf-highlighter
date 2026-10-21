@@ -1,0 +1,29 @@
+[
+  {
+    "file": "home.jpg",
+    "description": "読み込み前の画面",
+    "samples": []
+  },
+  {
+    "file": "extract.jpg",
+    "description": "抽出結果とハイライト(項目を選んだ状態)",
+    "samples": [
+      "withholding-slip/text.pdf"
+    ]
+  },
+  {
+    "file": "ocr.jpg",
+    "description": "スキャンPDFを OCR で読み取っている途中",
+    "samples": [
+      "withholding-slip/scan.pdf"
+    ]
+  },
+  {
+    "file": "diff.jpg",
+    "description": "前回の資料との比較(項目の差分)",
+    "samples": [
+      "withholding-slip/scan.pdf",
+      "withholding-slip/text.pdf"
+    ]
+  }
+]
