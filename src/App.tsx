@@ -12,6 +12,8 @@ import { sideFromExported, sideFromReviewed } from "./diff/sides.ts";
 import { TextDiffView } from "./diff/TextDiffView.tsx";
 import { type DocumentLine, diffDocumentLines, documentLines, type TextDiffRow } from "./diff/text-diff.ts";
 import { convertValue } from "./extract/convert.ts";
+import { HelpPage } from "./help/HelpPage.tsx";
+import { useHelpRoute } from "./help/useHelpRoute.ts";
 import { HighlightLayer } from "./highlight/HighlightLayer.tsx";
 import { HighlightLegend } from "./highlight/HighlightLegend.tsx";
 import {
@@ -74,8 +76,13 @@ const titleOf = (documentId: string) => DOCUMENT_TYPES.find((t) => t.id === docu
 
 export function App() {
   const { theme } = useTheme();
+  const helpOpen = useHelpRoute();
   const wording = useWording();
   const [opened, setOpened] = useState<OpenedPdf | null>(null);
+  // 使い方を見ている間にPDFを開いたら(ウインドウへのドロップなど)、元の画面に戻して見せる
+  useEffect(() => {
+    if (opened && window.location.hash.startsWith("#help")) window.location.hash = "home";
+  }, [opened]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -442,7 +449,7 @@ export function App() {
           前回と比較
         </button>
         {opened && <span className="mono file-name">{opened.fileName}</span>}
-        {opened && page && (
+        {!helpOpen && opened && page && (
           <ViewerToolbar
             pageNumber={pageNumber}
             numPages={numPages}
@@ -457,7 +464,7 @@ export function App() {
             onFitWidth={() => setZoom({ mode: "fit-width" })}
           />
         )}
-        {current && (
+        {!helpOpen && current && (
           <ReadMethodStatus
             kind={current.reading.classification.kind}
             method={current.method}
@@ -466,6 +473,9 @@ export function App() {
           />
         )}
         <div className="spacer" />
+        <a className="link-button" href="#help" aria-current={helpOpen ? "page" : undefined}>
+          使い方
+        </a>
         <ThemeToggle />
         <div className="safe-badge">
           <LockIcon size={16} />
@@ -491,7 +501,8 @@ export function App() {
         />
       </header>
 
-      <div className="app-body">
+      {helpOpen && <HelpPage />}
+      <div className="app-body" hidden={helpOpen}>
         <main className="viewer">
           {error && (
             <div className="error-banner" role="alert">

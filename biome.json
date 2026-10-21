@@ -6,7 +6,15 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!dist", "!samples/**/*.json", "!schema/**/*.json", "!src/**/__snapshots__", "!package-lock.json"]
+    "includes": [
+      "**",
+      "!dist",
+      "!samples/**/*.json",
+      "!schema/**/*.json",
+      "!src/**/__snapshots__",
+      "!src/help/screenshots/*.json",
+      "!package-lock.json"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

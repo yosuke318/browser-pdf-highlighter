@@ -2,8 +2,11 @@
 //   npm run check:files
 //
 // git で管理しているファイルのうち、次のものがあれば失敗する:
-// - samples/ の外にある PDF・画像ファイル
+// - samples/ の外にある PDF・画像ファイル(使い方のページのスクリーンショットは除く。下を参照)
 // - samples/ にあるが、samples/manifest.json に載っていない PDF(生成スクリプトで作ったダミーではない可能性がある)
+//
+// 使い方のページのスクリーンショット(src/help/screenshots/)は、ダミーPDFから npm run help:screenshots で作り、
+// src/help/screenshots/manifest.json に記録したものだけを認める。
 //
 // 実データ(マスク済みのものを含む)は local-samples/ に置く。このディレクトリは .gitignore で除外している。
 
@@ -29,8 +32,21 @@ const listed = new Set(
     : [],
 );
 
+const SCREENSHOTS = "src/help/screenshots";
+const screenshotManifest: unknown = JSON.parse(await readFile(join(ROOT, SCREENSHOTS, "manifest.json"), "utf8"));
+const screenshots = new Set(
+  Array.isArray(screenshotManifest)
+    ? screenshotManifest.flatMap((entry: unknown) =>
+        typeof entry === "object" && entry !== null && "file" in entry && typeof entry.file === "string"
+          ? [`${SCREENSHOTS}/${entry.file}`]
+          : [],
+      )
+    : [],
+);
+
 const errors: string[] = [];
 for (const file of tracked.filter((f) => DOCUMENT_EXTENSIONS.test(f))) {
+  if (screenshots.has(file)) continue;
   if (!file.startsWith("samples/")) {
     errors.push(`${file}: samples/ の外にあるPDF・画像です。実データなら local-samples/ に移してください`);
   } else if (file.toLowerCase().endsWith(".pdf") && !listed.has(file)) {

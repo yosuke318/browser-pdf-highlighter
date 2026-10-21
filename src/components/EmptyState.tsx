@@ -28,6 +28,9 @@ export function EmptyState({ onChooseFile }: Props) {
         <p className="drop-area__note">
           スキャンしたPDFは自動でOCR(文字の読み取り)を行います。読み取った値は、画面で確認してから使ってください。
         </p>
+        <a className="link-button" href="#help">
+          使い方を見る
+        </a>
         <div className="safe-note">
           <LockIcon />
           PDFはこの端末の外へ送信されません
