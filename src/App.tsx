@@ -23,10 +23,12 @@ import {
   type ToScreen,
   textDiffKey,
 } from "./highlight/highlights.ts";
+import { annotatedFileName, annotationsFromReviewed } from "./highlight/pdf-annotations.ts";
 import { OpenPdfError, openErrorMessage } from "./pdf/open-file.ts";
 import type { ReadMethod } from "./pdf/page-kind.ts";
 import { openPdf } from "./pdf/pdfjs.ts";
 import { pageSegments } from "./pdf/read-page.ts";
+import { download } from "./results/download.ts";
 import { ImportError, parseExportedExtraction } from "./results/export.ts";
 import { ResultList } from "./results/ResultList.tsx";
 import { type ReviewAction, type ReviewedField, type ReviewState, reviewFields, reviewReducer } from "./results/review.ts";
@@ -45,6 +47,8 @@ import { resolveScale, type Zoom, zoomIn, zoomOut } from "./viewer/zoom.ts";
 
 interface OpenedPdf {
   doc: PDFDocumentProxy;
+  /** 開いたファイル。ハイライト付きPDFを作るときに、元のデータを読み直す */
+  file: File;
   fileName: string;
 }
 
@@ -100,6 +104,7 @@ export function App() {
   // 前回と比較している資料
   const [previous, setPrevious] = useState<PreviousDocument | null>(null);
   const [comparing, setComparing] = useState(false);
+  const [savingPdf, setSavingPdf] = useState(false);
   // 前回との差分の表示(項目の差分 / テキスト差分)
   const [diffView, setDiffView] = useState<"fields" | "text">("fields");
   const compareInputRef = useRef<HTMLInputElement>(null);
@@ -123,7 +128,7 @@ export function App() {
       setOpened((previous) => {
         // 前に開いていたPDFのメモリを解放する
         void previous?.doc.loadingTask.destroy();
-        return { doc, fileName: file.name };
+        return { doc, file, fileName: file.name };
       });
       setPage(null);
       setMethodOverrides({});
@@ -177,6 +182,8 @@ export function App() {
   // OCR で読むページのうち、読み取りが終わったページ(失敗したページも含む)の数
   const ocrTotal = results.ocr.filter((s) => s !== undefined).length;
   const ocrFinished = results.ocr.filter((s) => s?.status === "done" || s?.status === "failed").length;
+  // すべてのページの読み取り(OCR を含む)が終わったか
+  const readingDone = opened !== null && results.complete && ocrFinished === ocrTotal;
 
   // 書類ごとに、抽出結果へ確認・修正を重ねる
   const reviewed = useMemo(
@@ -330,6 +337,32 @@ export function App() {
     }
   }
 
+  /** 確認・修正を反映したハイライトを注釈として書き込んだPDFを保存する */
+  async function saveAnnotatedPdf() {
+    if (!opened) return;
+    setError(null);
+    setSavingPdf(true);
+    try {
+      const annotations = reviewed.flatMap(({ document, items }) =>
+        items ? annotationsFromReviewed(titleOf(document.documentId), document.id, document.documentId, items) : [],
+      );
+      // pdf-lib は大きいので、保存するときに読み込む
+      const { addHighlightAnnotations, AnnotatePdfError } = await import("./pdf/annotate-pdf.ts");
+      try {
+        const data = await addHighlightAnnotations(new Uint8Array(await opened.file.arrayBuffer()), annotations);
+        download(annotatedFileName(opened.fileName), new Blob([data as Uint8Array<ArrayBuffer>], { type: "application/pdf" }));
+      } catch (e) {
+        console.error(e);
+        setError(e instanceof AnnotatePdfError ? e.message : "ハイライト付きPDFを作れませんでした。");
+      }
+    } catch (e) {
+      console.error(e);
+      setError("ハイライト付きPDFを作れませんでした。");
+    } finally {
+      setSavingPdf(false);
+    }
+  }
+
   function handleCompareInput(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -447,6 +480,15 @@ export function App() {
           onClick={() => compareInputRef.current?.click()}
         >
           前回と比較
+        </button>
+        <button
+          type="button"
+          className="button"
+          disabled={!readingDone || savingPdf || !reviewed.some((r) => r.items)}
+          title={opened && !readingDone ? "読み取りが終わると保存できます" : undefined}
+          onClick={() => void saveAnnotatedPdf()}
+        >
+          {savingPdf ? "PDFを作成中…" : "ハイライト付きPDFを保存"}
         </button>
         {opened && <span className="mono file-name">{opened.fileName}</span>}
         {!helpOpen && opened && page && (

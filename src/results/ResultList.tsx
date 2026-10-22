@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CATEGORIES, categoryOf, type HighlightCategory } from "../highlight/categories.ts";
+import { download } from "./download.ts";
 import { exportFileName, toExportedExtraction } from "./export.ts";
 import { FieldItem } from "./FieldItem.tsx";
 import { countReview, type ManualEdit, type ReviewAction, type ReviewedField, unconfirmedKeys } from "./review.ts";
@@ -20,16 +21,6 @@ interface Props {
 
 type Filter = "all" | "todo" | HighlightCategory;
 
-/** ブラウザの中でファイルを作って保存させる(サーバーには送らない) */
-function download(fileName: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 /** 1つの書類の抽出結果の一覧 */
 export function ResultList({ title, documentId, pages, fileName, items, selectedKey, onSelect, onReview, onPickRange }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
@@ -44,7 +35,10 @@ export function ResultList({ title, documentId, pages, fileName, items, selected
 
   function saveJson() {
     const exported = toExportedExtraction(documentId, fileName, items, new Date());
-    download(exportFileName(fileName, documentId), `${JSON.stringify(exported, null, 2)}\n`);
+    download(
+      exportFileName(fileName, documentId),
+      new Blob([`${JSON.stringify(exported, null, 2)}\n`], { type: "application/json" }),
+    );
   }
 
   return (
